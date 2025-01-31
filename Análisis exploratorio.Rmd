@@ -1,0 +1,491 @@
+---
+title: "Análisis exploratorio"
+output: html_document
+date: "2025-01-31"
+---
+
+```{r}
+# Cargar librerías necesarias
+library(dplyr)
+library(ggplot2)
+library(nortest) # Para pruebas de normalidad
+
+# Cargar el archivo CSV (ajusta la ruta si es necesario)
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+# 1. Haga una exploración rápida de sus datos, para eso haga un resumen de su conjunto de datos. 
+cat("Exploración Rápida del Dataset:\n")
+cat("------------------------------------------------------\n")
+
+# Número de películas y variables
+num_peliculas <- nrow(movies)
+num_variables <- ncol(movies)
+cat("- Total de películas:", num_peliculas, "\n")
+cat("- Total de variables:", num_variables, "\n\n")
+
+# Tipos de datos
+cat("--- Tipos de Datos ---\n")
+tipos_datos <- sapply(movies, class)
+print(tipos_datos)
+
+# Valores faltantes
+cat("\n--- Valores Faltantes por Variable ---\n")
+valores_faltantes <- colSums(is.na(movies))
+print(valores_faltantes[valores_faltantes > 0])
+
+# Resumen de variables clave
+cat("\n--- Resumen Estadístico de Variables Cuantitativas ---\n")
+variables_cuantitativas <- c("budget", "revenue", "voteAvg", "voteCount", "runtime")
+resumen_cuantitativo <- summary(movies[, variables_cuantitativas])
+print(resumen_cuantitativo)
+
+# Resumen de variables cualitativas en una tabla compacta
+cat("\n--- Resumen de Variables Cualitativas ---\n")
+variables_cualitativas <- c("genres", "originalLanguage", "productionCountry")
+
+# Crear un resumen con las 5 categorías más frecuentes para cada variable
+resumen_cualitativas <- lapply(variables_cualitativas, function(var) {
+  distribucion <- sort(table(movies[[var]]), decreasing = TRUE) # Ordenar frecuencias descendentes
+  top_5 <- head(distribucion, 5) # Tomar las 5 más comunes
+  return(data.frame(Categoría = names(top_5), Frecuencia = as.vector(top_5)))
+})
+
+# Mostrar el resumen en forma de tablas
+names(resumen_cualitativas) <- variables_cualitativas
+
+for (var in names(resumen_cualitativas)) {
+  cat("\n- Variable:", var, "\n")
+  print(resumen_cualitativas[[var]])
+}
+
+# Conclusiones y Observaciones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- El conjunto de datos contiene", num_peliculas, "películas con información en", num_variables, "variables.\n")
+cat("- Variables importantes como 'budget', 'revenue' y 'voteAvg' permiten un análisis financiero y de popularidad.\n")
+cat("- Algunas variables, como 'budget' y 'revenue', contienen valores faltantes que deben manejarse para evitar sesgos.\n")
+cat("- El campo 'genres' tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros.\n")
+cat("- 'runtime' varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas.\n")
+cat("- Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.\n")
+
+
+
+
+
+
+
+# 2. Diga el tipo de cada una de las variables (cualitativa ordinal o nominal, cuantitativa continua, cuantitativa discreta). 
+tipos_variables <- data.frame(
+  Variable = names(movies),
+  Tipo = sapply(movies, function(columna) {
+    valores_unicos <- length(unique(columna))
+    tipo_dato <- class(columna)
+    
+    if (tipo_dato %in% c("integer", "numeric")) {
+      if (valores_unicos < 20) {
+        return("Cuantitativa Discreta")
+      } else {
+        return("Cuantitativa Continua")
+      }
+    } else {
+      if (valores_unicos < 20) {
+        return("Cualitativa Ordinal")
+      } else {
+        return("Cualitativa Nominal")
+      }
+    }
+  })
+)
+
+# Resumir los resultados
+cat("\n--- Resumen de la Clasificación de Variables ---\n")
+table(tipos_variables$Tipo)
+
+# Mostrar solo un resumen de las variables más representativas (primeras filas de cada tipo)
+cat("\n--- Ejemplo de Variables Clasificadas ---\n")
+print(head(tipos_variables, n = 27))
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- Se identificaron", nrow(tipos_variables), "variables en el dataset.\n")
+cat("- La mayoría de las variables son cualitativas nominales, representando información categórica como géneros y compañías productoras.\n")
+cat("- Las variables cuantitativas continuas como 'budget' y 'revenue' son claves para el análisis financiero.\n")
+cat("- Algunas variables pueden requerir limpieza adicional, especialmente si contienen valores faltantes o categorías redundantes.\n")
+
+
+
+
+
+# 3. Investigue si las variables cuantitativas siguen una distribución normal y haga una tabla de frecuencias de las variables cualitativas. Explique todos los resultados. 
+variables_cuantitativas <- c("budget", "revenue", "voteAvg", "voteCount", "runtime")
+
+# Evaluar si las variables cuantitativas siguen una distribución normal
+cat("\n--- Pruebas de Normalidad para Variables Cuantitativas ---\n")
+resultados_normalidad <- lapply(variables_cuantitativas, function(var) {
+  datos <- na.omit(movies[[var]]) # Eliminar valores faltantes
+  if (length(datos) > 3) { # La prueba requiere al menos 3 datos
+    prueba <- lillie.test(datos) # Prueba de Lilliefors (Kolmogorov-Smirnov ajustada)
+    return(data.frame(Variable = var, P_Value = prueba$p.value))
+  } else {
+    return(data.frame(Variable = var, P_Value = NA))
+  }
+})
+
+# Combinar resultados en un solo dataframe
+tabla_normalidad <- do.call(rbind, resultados_normalidad)
+
+# Determinar si hay normalidad (P-valor > 0.05 indica que la variable sigue una distribución normal)
+tabla_normalidad$Normalidad <- ifelse(tabla_normalidad$P_Value > 0.05, "Sí", "No")
+print(tabla_normalidad)
+
+# Crear tablas de frecuencias para variables cualitativas
+cat("\n--- Tablas de Frecuencia para Variables Cualitativas ---\n")
+variables_cualitativas <- c("genres", "originalLanguage", "productionCountry")
+
+frecuencias_cualitativas <- lapply(variables_cualitativas, function(var) {
+  distribucion <- sort(table(movies[[var]]), decreasing = TRUE) # Ordenar por frecuencia
+  top_5 <- head(distribucion, 5) # Tomar las 5 categorías más comunes
+  return(data.frame(Categoría = names(top_5), Frecuencia = as.vector(top_5)))
+})
+
+# Mostrar resumen de tablas de frecuencias
+names(frecuencias_cualitativas) <- variables_cualitativas
+for (var in names(frecuencias_cualitativas)) {
+  cat("\n---", var, "---\n")
+  print(frecuencias_cualitativas[[var]])
+}
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- Las pruebas de normalidad indican que:\n")
+for (i in 1:nrow(tabla_normalidad)) {
+  cat("  - La variable", tabla_normalidad$Variable[i], "sigue una distribución normal:", tabla_normalidad$Normalidad[i], "\n")
+}
+
+cat("\n- Tablas de frecuencia muestran las categorías más comunes para las variables cualitativas:\n")
+for (var in names(frecuencias_cualitativas)) {
+  cat("  - En", var, "las categorías más frecuentes son:\n")
+  print(frecuencias_cualitativas[[var]])
+}
+cat("\nConclusión:\n")
+cat("- Las variables cuantitativas tienen diferentes distribuciones; solo algunas pueden aproximarse a la normalidad.\n")
+cat("- Las categorías principales en variables cualitativas como 'genres' y 'originalLanguage' pueden guiar el análisis de tendencias.\n")
+
+
+
+
+# 4.	Responda las siguientes preguntas:  
+
+# 4.1. ¿Cuáles son las 10 películas que contaron con más presupuesto? 
+
+# Seleccionar las 10 películas con mayor presupuesto
+top_budget_movies <- movies %>%
+  select(title, budget) %>%
+  arrange(desc(budget)) %>%
+  head(10)
+
+# Mostrar las 10 películas con mayor presupuesto
+cat("\n--- Las 10 películas con mayor presupuesto ---\n")
+print(top_budget_movies)
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+# Resumen estadístico del presupuesto de estas películas
+presupuesto_stats <- summary(top_budget_movies$budget)
+print(presupuesto_stats)
+
+# Conclusiones
+cat("- Estas películas tienen presupuestos significativamente altos en comparación con el promedio del dataset.\n")
+cat("- La película con el mayor presupuesto es:", top_budget_movies$title[1], "con un presupuesto de", top_budget_movies$budget[1], "USD.\n")
+cat("- Estas producciones suelen corresponder a franquicias o estudios con alta inversión, lo que podría estar relacionado con mayores expectativas de ingresos.\n")
+cat("- Este análisis ayuda a identificar tendencias en las películas más costosas y a analizar su desempeño financiero en relación con sus ingresos.\n")
+
+
+# 4.2. ¿Cuáles son las 10 películas que más ingresos tuvieron? 
+
+# Seleccionar las 10 películas con mayores ingresos
+top_revenue_movies <- movies %>%
+  select(title, revenue) %>%
+  arrange(desc(revenue)) %>%
+  head(10)
+
+# Mostrar las 10 películas con mayores ingresos
+cat("\n--- Las 10 películas con mayores ingresos ---\n")
+print(top_revenue_movies)
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+
+# Resumen estadístico de los ingresos de estas películas
+revenue_stats <- summary(top_revenue_movies$revenue)
+print(revenue_stats)
+
+# Calcular la película con mayores ingresos
+pelicula_mas_ingresos <- top_revenue_movies[1, ]
+cat("- La película con los mayores ingresos es:", pelicula_mas_ingresos$title, 
+    "con un ingreso total de", pelicula_mas_ingresos$revenue, "USD.\n")
+
+# Conclusiones
+cat("- Las películas con los mayores ingresos suelen pertenecer a franquicias conocidas o contar con producciones de alto nivel.\n")
+cat("- El rango de ingresos de estas películas es significativamente alto, indicando un éxito comercial sobresaliente.\n")
+cat("- Este análisis permite identificar patrones en las películas más exitosas económicamente y su impacto en la industria cinematográfica.\n")
+
+
+# 4.3. ¿Cuál es la película que más votos tuvo? 
+most_voted_movie <- movies %>%
+  select(title, voteCount) %>%
+  arrange(desc(voteCount)) %>%
+  head(1)
+
+# Mostrar la película con más votos
+cat("\n--- Película con más votos ---\n")
+print(most_voted_movie)
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+
+# Detalles de la película con más votos
+cat("- La película con más votos es:", most_voted_movie$title, 
+    "con un total de", most_voted_movie$voteCount, "votos.\n")
+
+# Posibles razones para el alto número de votos
+cat("- El alto número de votos puede estar relacionado con la popularidad general de la película, el elenco o la franquicia.\n")
+cat("- Es probable que esta película haya tenido una gran base de fans o una fuerte estrategia de marketing que impulsó su recepción en plataformas de votación.\n")
+
+# Conclusión
+cat("- Identificar películas con altos votos puede ayudar a entender qué características atraen a las audiencias y generan interacción.\n")
+
+
+# 4.4. ¿Cuál es la peor película de acuerdo a los votos de todos los usuarios? 
+
+# Seleccionar la peor película según el promedio de votos
+worst_movie <- movies %>%
+  select(title, voteAvg) %>%
+  arrange(voteAvg) %>%
+  head(1)
+
+# Mostrar la peor película según los votos
+cat("\n--- La peor película según el promedio de votos ---\n")
+print(worst_movie)
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+
+# Detalles de la película con la peor calificación
+cat("- La peor película según el promedio de votos es:", worst_movie$title, 
+    "con un promedio de", worst_movie$voteAvg, "en la plataforma.\n")
+
+# Posibles razones para la baja calificación
+cat("- Las bajas calificaciones pueden deberse a problemas de calidad en la trama, actuaciones, dirección o simplemente a expectativas no cumplidas por parte del público.\n")
+cat("- También podría tratarse de una producción menos popular, con menor presupuesto o limitada distribución.\n")
+
+# Conclusión
+cat("- Conocer las peores películas según los votos ayuda a identificar los factores que pueden generar una recepción negativa y evitar errores en futuras producciones.\n")
+
+
+# 4.5. ¿Cuántas películas se hicieron en cada año? ¿En qué año se hicieron más películas? Haga un gráfico de barras 
+
+# Calcular cuántas películas se hicieron en cada año
+top_year_movies <- movies %>%
+  mutate(releaseYear = as.numeric(substr(releaseDate, 1, 4))) %>% # Extraer el año de la fecha de lanzamiento
+  group_by(releaseYear) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Identificar el año con más películas
+year_max_movies <- top_year_movies %>%
+  filter(count == max(count))
+cat("\n--- Año con más películas ---\n")
+cat("El año con más películas fue", year_max_movies$releaseYear, "con", year_max_movies$count, "películas.\n")
+
+# Seleccionar el año con más películas y otros 9 años con menos películas
+comparison_years <- top_year_movies %>%
+  filter(releaseYear != year_max_movies$releaseYear) %>%
+  arrange(desc(count)) %>%
+  head(9) %>%
+  bind_rows(year_max_movies)
+
+# Ordenar por número de películas (para gráfico más claro)
+comparison_years <- comparison_years %>%
+  arrange(desc(count))
+
+# Crear indicador para resaltar el año con más películas
+comparison_years <- comparison_years %>%
+  mutate(Highlight = ifelse(releaseYear == year_max_movies$releaseYear, "Año con más películas", "Otros años"))
+
+# Crear gráfico de barras
+ggplot(comparison_years, aes(x = reorder(as.factor(releaseYear), -count), y = count, fill = Highlight)) +
+  geom_bar(stat = "identity", alpha = 0.8) +
+  scale_fill_manual(values = c("Año con más películas" = "red", "Otros años" = "blue")) +
+  labs(title = "Comparación del año con más películas vs. otros años",
+       x = "Año",
+       y = "Cantidad de películas",
+       fill = "Categoría") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- El año con más películas fue", year_max_movies$releaseYear, "con un total de", year_max_movies$count, "películas.\n")
+cat("- Comparado con otros 9 años seleccionados, este año resalta significativamente por la cantidad de producciones.\n")
+cat("- Este gráfico destaca visualmente la diferencia entre este año y otros años con menos películas.\n")
+cat("- Las razones para este auge en la producción pueden incluir avances tecnológicos, estrategias de mercado y una alta demanda del público.\n")
+
+
+# 4.6. Análisis de géneros
+# Extraer el año de la columna releaseDate
+movies <- movies %>%
+  mutate(releaseYear = as.numeric(substr(releaseDate, 1, 4)))
+
+
+# 4.6. ¿Cuál es el género principal de las 20 películas más recientes? ¿Cuál es el género principal que predomina en el conjunto de datos? Represéntelo usando un gráfico. ¿A qué género principal pertenecen las películas más largas? 
+
+# Asegurarse de que el año de lanzamiento está disponible en el dataset
+movies <- movies %>%
+  mutate(releaseYear = as.numeric(substr(releaseDate, 1, 4)))
+
+# 1. Identificar el género principal de las 20 películas más recientes
+recent_movies <- movies %>%
+  arrange(desc(releaseYear)) %>%
+  head(20)
+
+recent_genre_distribution <- table(recent_movies$genres)
+recent_top_genre <- names(sort(recent_genre_distribution, decreasing = TRUE)[1])
+cat("\n--- Género principal de las 20 películas más recientes ---\n")
+print(recent_top_genre)
+
+# 2. Identificar el género principal en todo el conjunto de datos
+genre_distribution <- table(movies$genres)
+most_common_genre <- names(sort(genre_distribution, decreasing = TRUE)[1])
+cat("\n--- Género principal que predomina en el conjunto de datos ---\n")
+print(most_common_genre)
+
+# Crear gráfico para los 10 géneros más frecuentes en todo el dataset
+top_genres <- sort(genre_distribution, decreasing = TRUE)[1:10]
+top_genres_df <- data.frame(Género = names(top_genres), Frecuencia = as.vector(top_genres))
+
+ggplot(top_genres_df, aes(x = reorder(Género, Frecuencia), y = Frecuencia)) +
+  geom_bar(stat = "identity", fill = "blue", alpha = 0.7) +
+  coord_flip() +
+  labs(title = "Top 10 géneros más frecuentes en el dataset",
+       x = "Género",
+       y = "Frecuencia") +
+  theme_minimal()
+
+# 3. Identificar el género principal de las películas más largas
+longest_movies <- movies %>%
+  arrange(desc(runtime)) %>%
+  head(10)
+
+longest_genre_distribution <- table(longest_movies$genres)
+longest_top_genre <- names(sort(longest_genre_distribution, decreasing = TRUE)[1])
+cat("\n--- Género principal de las películas más largas ---\n")
+print(longest_top_genre)
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- El género principal de las 20 películas más recientes es:", recent_top_genre, ". Esto refleja tendencias actuales en la industria cinematográfica.\n")
+cat("- El género principal en todo el conjunto de datos es:", most_common_genre, ", lo que indica una preferencia general en la producción.\n")
+cat("- El género principal de las películas más largas es:", longest_top_genre, ". Esto sugiere que ciertos géneros requieren más tiempo de metraje para desarrollar historias complejas.\n")
+cat("- Visualizar los géneros más frecuentes permite entender qué tipos de películas dominan la industria y cómo evolucionan con el tiempo.\n")
+
+
+
+# 4.7. ¿Las películas de qué genero principal obtuvieron mayores ganancias? 
+# Cargar librerías necesarias
+library(dplyr)
+
+# Calcular las ganancias de cada película
+movies <- movies %>%
+  mutate(profit = revenue - budget) # Crear la columna de ganancias (profit)
+
+# Calcular las ganancias totales por género
+genre_profit <- movies %>%
+  filter(genres != "") %>% # Filtrar géneros no vacíos
+  group_by(genres) %>%
+  summarise(total_profit = sum(profit, na.rm = TRUE)) %>% # Sumar ganancias por género
+  arrange(desc(total_profit)) # Ordenar en orden descendente por ganancias
+
+# Mostrar los 5 géneros con mayores ganancias
+cat("\n--- Géneros con mayores ganancias ---\n")
+top_genre_profit <- head(genre_profit, 5)
+print(top_genre_profit)
+
+# Identificar el género con mayores ganancias
+top_genre <- top_genre_profit[1, ]
+cat("\n--- Género con mayores ganancias ---\n")
+cat("El género con mayores ganancias es:", top_genre$genres, 
+    "con un total de", top_genre$total_profit, "USD.\n")
+
+# Crear un gráfico de los 5 géneros más rentables
+ggplot(top_genre_profit, aes(x = reorder(genres, -total_profit), y = total_profit)) +
+  geom_bar(stat = "identity", fill = "green", alpha = 0.7) +
+  labs(title = "Top 5 géneros con mayores ganancias",
+       x = "Género",
+       y = "Ganancias Totales (USD)") +
+  theme_minimal() +
+  coord_flip()
+
+# Análisis y conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- El género con mayores ganancias es:", top_genre$genres, 
+    "con un total de", top_genre$total_profit, "USD.\n")
+cat("- Los géneros más rentables suelen incluir producciones de alto presupuesto con gran éxito en taquilla.\n")
+cat("- Este análisis permite identificar los géneros más lucrativos, lo que puede guiar decisiones estratégicas en producción y marketing.\n")
+cat("- Visualizar las ganancias totales por género ayuda a priorizar inversiones en géneros con mayor potencial económico.\n")
+
+
+# 4.8. ¿La cantidad de actores influye en los ingresos de las películas?¿se han hecho películas con más actores en los últimos años? 
+# Cargar librerías necesarias
+library(dplyr)
+library(ggplot2)
+
+# 1. Relación entre la cantidad de actores y los ingresos
+cat("\n--- Análisis: Relación entre cantidad de actores e ingresos ---\n")
+
+# Crear un gráfico de dispersión con línea de tendencia
+ggplot(movies, aes(x = actorsAmount, y = revenue)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "Relación entre la cantidad de actores y los ingresos",
+       x = "Cantidad de Actores",
+       y = "Ingresos (USD)") +
+  theme_minimal()
+
+# Análisis inicial de correlación
+correlation <- cor(movies$actorsAmount, movies$revenue, use = "complete.obs")
+cat("La correlación entre la cantidad de actores y los ingresos es:", correlation, "\n")
+cat("- Una correlación positiva indica que más actores tienden a generar mayores ingresos.\n")
+cat("- Sin embargo, valores extremos o géneros específicos pueden influir en esta relación.\n")
+
+# 2. Evolución del número de actores en las películas por año
+cat("\n--- Análisis: Evolución del número de actores en las películas ---\n")
+
+# Calcular el promedio de actores por año
+actors_per_year <- movies %>%
+  group_by(releaseYear) %>%
+  summarise(avg_actors = mean(actorsAmount, na.rm = TRUE))
+
+# Crear un gráfico de líneas para visualizar la tendencia
+ggplot(actors_per_year, aes(x = releaseYear, y = avg_actors)) +
+  geom_line(color = "blue") +
+  geom_point(color = "red") +
+  labs(title = "Evolución del número de actores en las películas por año",
+       x = "Año",
+       y = "Promedio de Actores") +
+  theme_minimal()
+
+# Identificar el año con el promedio más alto de actores
+max_avg_actors <- actors_per_year %>%
+  filter(avg_actors == max(avg_actors, na.rm = TRUE))
+cat("El año con el mayor promedio de actores es:", max_avg_actors$releaseYear,
+    "con un promedio de", max_avg_actors$avg_actors, "actores.\n")
+
+# Conclusiones
+cat("\n--- Análisis y Conclusiones ---\n")
+cat("- La correlación entre la cantidad de actores y los ingresos es de:", correlation, "\n")
+cat("  Esto sugiere que, aunque más actores pueden contribuir a mayores ingresos, la relación no es extremadamente fuerte.\n")
+cat("- El análisis muestra que las películas con más actores tienden a ser producidas en años recientes, reflejando una tendencia creciente en la industria.\n")
+cat("- Estas tendencias pueden ser el resultado de mayores producciones en géneros como acción o aventuras, donde se requieren grandes elencos.\n")
+cat("- Comprender esta relación es clave para equilibrar costos y beneficios al planificar el reparto en futuras producciones.\n")
+
+```
