@@ -1219,6 +1219,7 @@ Como se puede ver la cantidad de generos ha aumentado sobre todo aquellos que so
 
 
 
+
 ### 5.4 ¿Cuales fueron los paises que se rodaron filmes con mayor rendimiento?
 
 Calcularemos la ganancia generada y luego la contrastaremos en un grafico de barras con respecto a los paises. 
@@ -1226,9 +1227,106 @@ Calcularemos la ganancia generada y luego la contrastaremos en un grafico de bar
 
 ```{r}
 
+movies_por_pais <- movies %>%
+  select(title, revenue, budget,productionCountry)
+
+# Calculamos la ganancia
+movies_por_pais$ganancia <- (movies_por_pais$revenue - movies_por_pais$budget) / movies_por_pais$revenue
+
+# Filtramos valores finitos
+movies_por_pais <- movies_por_pais[is.finite(movies_por_pais$ganancia), ]
+
+
+movies_por_pais <- movies_por_pais %>%
+  separate_rows(productionCountry, sep = "\\|")
+
+
+movies_por_pais_promedio <- movies_por_pais %>%
+  group_by(productionCountry) %>%
+  summarise(promedio_ganancia = mean(ganancia), .groups = "drop")
+
+top_20_paises <- movies_por_pais_promedio %>%
+  arrange(desc(promedio_ganancia)) %>%
+  head(20)
+
+# Crear gráfico
+ggplot(top_20_paises, aes(x = reorder(productionCountry, promedio_ganancia), y = promedio_ganancia)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Promedio de ganancia por país",
+       x = "País", 
+       y = "Promedio de ganancia") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotar etiquetas del eje X
+
+```
+#### Analisis Grafico
+Como se puede observar los paises con mayor rendimiento son desde Australia a Vietnam y han tenido ganancias del 0.6 al 100% como ganancia neta con respecto a su presupuesto invertido
+
+#### Conclusion
+En conclusion si se desea un promedio de ganancias bueno es mejor filmar en estos paises, debido a que puede ser que los costos no se eleven tanto , y puede ayudar a generar peliculas que sean mas entretenidas y llamativas al publico al conocer lugares que no han visto. 
+
+
+### 5.5 ¿Cual son los actores que mas recaudacion ha tenido?
+Para ello realizaremos una tabla
+```{r}
+
+
+# Seleccionamos las columnas relevantes
+movies_por_actor <- movies %>%
+  select(actors, revenue)
+
+# Limpiamos posibles caracteres no estándar en los nombres de los actores
+movies_por_actor$actors <- iconv(movies_por_actor$actors, from = "UTF-8", to = "ASCII//TRANSLIT")
+
+# Separamos a los actores en filas
+movies_por_actor <- movies_por_actor %>%
+  separate_rows(actors, sep = "\\|")
+
+# Calculamos el promedio de ingresos por actor
+movies_por_actor_promedio <- movies_por_actor %>%
+  group_by(actors) %>%
+  summarise(promedio_ingresos = mean(revenue, na.rm = TRUE), .groups = "drop")
+
+# Ordenamos y seleccionamos los 20 actores con mayor promedio de ingresos
+top_20_actores <- movies_por_actor_promedio %>%
+  arrange(desc(promedio_ingresos)) %>%
+  head(20)
+
+# Imprimir los primeros 20 actores
+
+knitr::kable(top_20_actores, format= "html")
 
 ```
 
-### 5.5 ¿Cuales fueron los paises con las productoras que mas recaudaron ingresos?
 
-### 5.6 ¿El numero de productoras afecta el rendimiento economico de una pelicula?
+#### Conclusion
+
+Como se puede observar estos son los actores que mas ingresos si bien no han generado en promedio sus peliculas en las que han estado han tenido muchos ingresos. Ello puede servir para poder elegir que elenco de celebridades elegir para una nueva cinta. 
+
+
+
+### 5.6 ¿Que idiomas de las peliculas son los mas consumidos (con mayor ingresos)?
+```{r}
+movies_por_lengua <- movies %>%
+  select(originalLanguage, revenue )
+
+
+# Calculamos el promedio de ingresos por lengua
+movies_por_lengua_promedio <- movies_por_lengua %>%
+  group_by(originalLanguage) %>%
+  summarise(promedio_ingresos = mean(revenue, na.rm = TRUE), .groups = "drop")
+
+
+top_20_lenguas <- movies_por_lengua_promedio %>%
+  arrange(desc(promedio_ingresos)) %>%
+  head(20)
+
+
+knitr::kable(top_20_lenguas, format= "html")
+
+```
+
+
+#### Conclusion
+
+Como se puede ver los idiomas de las peliculas que mas se consumen son el chino, el indi, el telugu , coreano e ingles. Esto se debe muy posiblemente a que son los paises con mayor consumo de peliculas , y ademas hay 2 paises siendo la India y China que tienen una gran poblacion de personas , lo que hace que las peliculas estrenadas ahi consigan muchos ingresos. 
