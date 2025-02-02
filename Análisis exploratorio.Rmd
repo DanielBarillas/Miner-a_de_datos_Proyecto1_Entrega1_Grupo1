@@ -1,13 +1,16 @@
 ---
 title: "Análisis exploratorio"
 author: 
-  - "Realizado por:"
   - "Pablo Daniel Barillas Moreno, Carné No. 22193"
   - "Mathew Cordero Aquino, Carné No. 22982"
+  - "Realizado por:"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2025-02-02"
+header-includes:
+   - \usepackage{fvextra}
+   - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
 repository: "https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entrega1_Grupo1"
 ---
 
