@@ -1,8 +1,19 @@
 ---
 title: "Análisis exploratorio"
-output: html_document
-date: "2025-01-31"
+author: 
+  - "Realizado por:"
+  - "Pablo Daniel Barillas Moreno, Carné No. 22193"
+  - "Mathew Cordero Aquino, Carné No. 22982"
+output:
+  html_document: default
+  pdf_document: default
+date: "2025-02-02"
+repository: "https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entrega1_Grupo1"
 ---
+
+### Enlace al Repositorio del Grupo #1
+[Repositorio en GitHub](https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entrega1_Grupo1.git)
+
 
 ```{r setup, include=FALSE} 
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
