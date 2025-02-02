@@ -606,6 +606,7 @@ La cantidad de actores de ambos generos mientras mayor sea la popularidad y los 
 ### 4.10 ¿Quiénes son los directores que hicieron las 20 películas mejor calificadas?
 ```{r}
 library(knitr)
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 movies[] <- lapply(movies, function(x) iconv(x, from = "latin1", to = "UTF-8", sub = "byte"))
 
 movies <- movies %>%
@@ -618,6 +619,8 @@ top_20_movies <- movies %>%
   head(20)
 knitr::kable(top_20_movies, format = "html")
 ```
+
+
 #### Conclusiones
 Se puede observar que los 20 directores con las peliculas mejor calificadas suelen ser de un rango de 9.0 a  10  de nota dada por la critica. Lo cual es un buen indicativo de la capacidad de los directores de poder conseguir buena critica. 
 
@@ -626,6 +629,7 @@ Se puede observar que los 20 directores con las peliculas mejor calificadas suel
 Para ello haremos una grafica de correlacion
 
 ```{r}
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 movies$budget <- as.numeric(movies$budget)
 movies$revenue <- as.numeric(movies$revenue)
 
@@ -645,13 +649,14 @@ text(paste("Correlación Presupuesto e Ingresos:", round(cor(x, y), 2)), x = 25,
 
 ```
 
+
 #### Conclusiones
 Como se puede observar en el gráfico de dispersión si hay una relación que tiende a un mayor presupuesto una mayor recaudación. Esto se debe a que una parte de los presupuestos se suele destinar a la publicidad lo que puede influir en su crecimiento. Sin embargo podemos observar ciertos puntos atípicos por encima y debajo de la linea de tendencia que muestran que muchas veces con menor presupuesto se logran una gran cantidad de ingresos y con mucho presupuesto suelen tener ingresos muy bajos. Aun asi la correlacion es muy alta siendo de 0.76 lo que indica que hay una correlacion entre ambas variables. 
 
 ### 4.12  ¿Se asocian ciertos meses de lanzamiento con mejores ingresos?
 Para ello agruparemos los meses y calcularemos el total de ingresos
 ```{r}
-
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 movies$releaseMonth <- as.numeric(substr(movies$releaseDate, 6, 7))
 
 
@@ -667,6 +672,7 @@ monthly_revenue <- movies %>%
 
 knitr::kable(monthly_revenue, format = "html")
 ```
+
 
 
 #### Conclusiones
@@ -691,7 +697,9 @@ knitr::kable(count_movie_month_total, format = "html")
 
 Como siguiente paso veremos el promedio de peliculas por año
 ```{r}
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 movies$releaseYear <- as.numeric(substr(movies$releaseDate, 1, 4))
+movies$releaseMonth <- as.numeric(substr(movies$releaseDate, 6, 7))
 count_movie_month <- movies %>%
   group_by(releaseMonth, releaseYear) %>%
   summarise(movie_count = n(), .groups = 'drop')
@@ -706,6 +714,7 @@ average_movies_per_month <- count_movie_month %>%
 
 print(average_movies_per_month)
 ```
+
 #### Conclusiones
 Podemos observar que en total de peliculas lanzadas la mayoria en promedio y total han sido siempre en Septiembre. Y el mes de Junio ha sido si bien el que mejor ingresos ha tenido en el que menos peliculas en promedio se han lanzado siendo de 11 aproximadamente. Y 819 en total de peliculas lanzadas, sin embargo se han recaudado mayor cantidad de ingresos en dicho mes. Muy posiblemente debido a las vacaciones de verano que inician en Junio y terminan en Septiembre, y son epocas en donde los padres llevan a sus hijos a ver peliculas. 
 
@@ -713,39 +722,41 @@ Por lo que si se quiere lanzar una pelicula seria entre los meses 5, 6 , 7 y 8 .
 
 Lo que se recomienda es tomar en cuenta la popularidad de las peliculas por cada mes, para asi poder tener una perspectiva contra que se compite. 
 
-### 4.13  ¿Cómo se correlacionan las calificaciones con el éxito comercial?
+### 4.14  ¿Cómo se correlacionan las calificaciones con el éxito comercial?
 
 Para ello realizaremos una grafica de correlacion entre su exito que se podria ver como la diferencia entre ingresos - presupuesto / ingresos que es un porcentaje de ganancia que se tiene para la pelicula y en el eje y tendremos su calificacion 
 
 ```{r}
-
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 # Reemplazar NA e Inf en 'revenue', 'budget', y 'voteAvg' por la mediana
 movies$revenue[is.na(movies$revenue) | is.infinite(movies$revenue)] <- median(movies$revenue, na.rm = TRUE)
 movies$budget[is.na(movies$budget) | is.infinite(movies$budget)] <- median(movies$budget, na.rm = TRUE)
 movies$voteAvg[is.na(movies$voteAvg) | is.infinite(movies$voteAvg)] <- median(movies$voteAvg, na.rm = TRUE)
 
 # Calcular las ganancias (gains)
-movies$gains <- ifelse(as.numeric(movies$revenue) == 0, 0, 
+movies$ganancia_neta <- ifelse(as.numeric(movies$revenue) == 0, 0, 
                        (as.numeric(movies$revenue) - as.numeric(movies$budget)) / as.numeric(movies$revenue))
 
-x <- movies$gains
-y <- movies$voteAvg
+
+x <- movies$voteAvg
+y <- movies$ganancia_neta
 plot(x, y, pch = 19, col = "lightblue", 
-     xlab = "Éxito Comercial (Ganancia Neta)",  # Título del eje X
-     ylab = "Promedio de Calificaciones",
-     xlim = c(0, max(x, na.rm = TRUE)))
+     xlab = "Promedio de Calificaciones",  # Título del eje X
+     ylab = "Exito Comercial",
+     ylim = c(0, max(y, na.rm = TRUE)))
 
 # Agregar la línea de regresión
 abline(lm(y ~ x), col = "red", lwd = 3)
 
 text(paste("Correlación de Éxito comercial y Calificaciones:", round(cor(x, y), 2)), x = 25, y = 95)
 ```
+
 #### Analisis Grafico
 Este grafico nos muestra aquellos de 0 a 1 de ganancias. 1 es que generaron ganacias del 100% y 0% que su presupuesto no genero ganancias esto quiere decir que los ingresos apenas alcanzaron para cubrir los costes. Por otro lado tambien se clasifico como 0 aquellos que no solo no generaron ganancias sino que tampoco generaron ingresos.    Cabe aclarar que aqui se colocan todos aquellos que tienen exito comercial (osea apartir de 0) , pues hay peliculas con ganancias negativas las cuales son fracasos que perdieron dinero,  y por ende no se toman para el analisis. 
 
 Si quitamos las que no tuvieron ingresos ya que tambien son fracasos tendriamos esto
 ```{r}
-
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 # Reemplazar NA e Inf en 'revenue', 'budget', y 'voteAvg' por la mediana
 movies$revenue[is.na(movies$revenue) | is.infinite(movies$revenue)] <- median(movies$revenue, na.rm = TRUE)
 movies$budget[is.na(movies$budget) | is.infinite(movies$budget)] <- median(movies$budget, na.rm = TRUE)
@@ -772,4 +783,246 @@ text(paste("Correlación de Éxito comercial y Calificaciones:", round(cor(x, y)
 
 #### Analisis Grafico
 Aun con ello vemos que sigue sin existir relacion, debido a que la mayoria en promedio es calificada con un 6, vemos que una parte importante de las peliculas que son calificadas por la critica por debajo del 6 tienen una ganancia neta del 100%. Lo que indica que su ingresos supero o triplico la ganancias de las peliculas. Aun asi hay muchas cintas que lograron tener muy buena critica y tener un exito comercial.
+
+
+#### Conclusion
+Como se puede observar no existe relacion entre el exito comercial y las calificaciones, sin embargo una gran cantidad de peliculas con un puntaje mayor a 6. Hay tenido una rendimiento muy alto en sus ganancias. Lo cual indica que las personas si desean pagar por ver una pelicula buena . 
+
+
+### 4.15  ¿Qué estrategias de marketing, como videos promocionales o páginas oficiales, generan mejores resultados?
+
+Lo que haremos es comparar usando la ganancia entre las 2 estrategias. 
+
+### Marketing de Video
+
+Si medimos sus ingresos veremos lo siguiente. 
+```{r}
+
+# Lo primero que haremos es mapear
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+
+marketing <- movies %>%
+  select(video, revenue)
+
+# Ahora balanceamos
+video_1 <- marketing %>% filter(video == TRUE)
+
+# Seleccionar aleatoriamente 84 observaciones de video = 0 y de N/A
+set.seed(123)  # Asegura reproducibilidad
+video_0_sample <- marketing %>%
+  filter(video == FALSE) %>%
+  sample_n(84)
+
+video_na_sample <- marketing %>%
+  filter(is.na(video)) %>%
+  sample_n(84)
+
+
+# Unir ambos subconjuntos para tener balanceado el dataset
+balanced_marketing <- bind_rows(video_1, video_0_sample, video_na_sample)
+
+balanced_counts <- balanced_marketing %>%
+  count(video)
+
+print(balanced_counts)
+
+
+balanced_marketing %>%
+  group_by(video) %>%
+  summarise(avg_revenue = mean(revenue, na.rm = TRUE)) %>%
+  ggplot(aes(x = factor(video), y = avg_revenue, fill = factor(video))) +
+  geom_col() +
+  labs(title = "Ingresos promedio según Video",
+       x = "¿Tiene video?",
+       y = "Ingreso promedio") +
+  theme_minimal()
+
+
+```
+
+#### Analisis Grafico
+
+Lo que vemos aqui es el promedio de ingresos dependiendo si tiene video o no tiene.  Por lo que se ve aqui es que no es concluyente por ende no se puede decir que tener o no video afecta a los ingresos percibidos. Pues tenemos demasiados valores que no conocemos si tienen o no video, por ende no se puede hacer una conclusion.  Pero se puede ver que las que no tienen video tienen mayores ingresos. 
+
+
+Ahora si medimos su popularidad veremos lo siguiente
+
+
+```{r}
+
+# Lo primero que haremos es mapear
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+
+marketing <- movies %>%
+  select(video, popularity)
+
+# Ahora balanceamos
+video_1 <- marketing %>% filter(video == TRUE)
+
+# Seleccionar aleatoriamente 84 observaciones de video = 0 y de N/A
+set.seed(123)  # Asegura reproducibilidad
+video_0_sample <- marketing %>%
+  filter(video == FALSE) %>%
+  sample_n(84)
+
+video_na_sample <- marketing %>%
+  filter(is.na(video)) %>%
+  sample_n(84)
+
+
+# Unir ambos subconjuntos para tener balanceado el dataset
+balanced_marketing <- bind_rows(video_1, video_0_sample, video_na_sample)
+
+balanced_counts <- balanced_marketing %>%
+  count(video)
+
+print(balanced_counts)
+
+
+balanced_marketing %>%
+  group_by(video) %>%
+  summarise(avg_popularity = mean(popularity, na.rm = TRUE)) %>%
+  ggplot(aes(x = factor(video), y = avg_popularity, fill = factor(video))) +
+  geom_col() +
+  labs(title = "Ingresos promedio según Video",
+       x = "¿Tiene video?",
+       y = "Popularidad promedio") +
+  theme_minimal()
+
+
+```
+#### Analisis Grafico
+
+Podemos ver que aquellas que tienen video suelen ser mucho mas populares que las que no. Esto puede deberse a que es muy comun en redes sociales que las que no tienen video suelan ser mas visitados su video que las que no,  sin embargo aun no es concluyente pues hay algunas que no se conocen si tienen o no. 
+
+
+
+### Marketing de Paginas Web
+Si medimos los ingresos si tienen pagina , nos daria. 
+
+```{r}
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+#Primero mapeamos si tiene como un string que tenga y si no tiene como N/A
+
+marketing <- movies %>%
+  select(homePage, revenue) %>%
+  mutate(homePage = ifelse(is.na(homePage), FALSE, TRUE)) 
+homePage_counts <- marketing %>%
+  count(homePage)
+
+print(homePage_counts)
+
+#Ahora balanceamos
+page_1 <- marketing %>% filter(homePage == TRUE)
+
+set.seed(123)  # Asegura reproducibilidad
+page_FALSE_sample <- marketing %>%
+  filter(homePage == FALSE) %>%
+  sample_n(4193)
+
+balanced_marketing <- bind_rows(page_1,page_FALSE_sample)
+
+
+
+
+balanced_counts <- balanced_marketing %>%
+  count(homePage)
+
+print(balanced_counts)
+
+
+#Ahora graficamos
+
+
+balanced_marketing %>%
+  group_by(homePage) %>%
+  summarise(avg_revenue = mean(revenue, na.rm = TRUE)) %>%
+  ggplot(aes(x = factor(homePage), y = avg_revenue, fill = factor(homePage))) +
+  geom_col() +
+  labs(title = "Ingresos promedio según pagina web",
+       x = "¿Tiene pagina web ?",
+       y = "Ingreso promedio") +
+  theme_minimal()
+
+```
+
+#### Analisis Grafico
+Podemos ver aqui que si tienen pagina web tiene una mayor cantidad de ingresos que al no tener una pagina web, siendo a simple vista casi el doble. Muy posiblemente debido a que internet suele ser una manera muy efectiva para promocionarse.
+
+
+
+Si medimos la popularidad si tienen pagina , nos daria. 
+
+```{r}
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+#Primero mapeamos si tiene como un string que tenga y si no tiene como N/A
+
+marketing <- movies %>%
+  select(homePage, popularity) %>%
+  mutate(homePage = ifelse(is.na(homePage), FALSE, TRUE)) 
+homePage_counts <- marketing %>%
+  count(homePage)
+
+print(homePage_counts)
+
+#Ahora balanceamos
+page_1 <- marketing %>% filter(homePage == TRUE)
+
+set.seed(123)  # Asegura reproducibilidad
+page_FALSE_sample <- marketing %>%
+  filter(homePage == FALSE) %>%
+  sample_n(4193)
+
+balanced_marketing <- bind_rows(page_1,page_FALSE_sample)
+
+
+
+
+balanced_counts <- balanced_marketing %>%
+  count(homePage)
+
+print(balanced_counts)
+
+
+#Ahora graficamos
+
+
+balanced_marketing %>%
+  group_by(homePage) %>%
+  summarise(avg_popularity = mean(popularity, na.rm = TRUE)) %>%
+  ggplot(aes(x = factor(homePage), y = avg_popularity, fill = factor(homePage))) +
+  geom_col() +
+  labs(title = "Ingresos promedio según pagina web",
+       x = "¿Tiene pagina web ?",
+       y = "Popularidad promedio") +
+  theme_minimal()
+
+```
+
+#### Analisis Grafico
+Podemos ver aqui que si llega a ser muy popular siguiendo la misma proporcion que los ingresos
+
+
+#### Conclusion
+Podemos ver que la mejor estrategia va a ser tener una pagina web, sin embargo se recomienda tambien tener un video , y colocarlo en las paginas web para poder apoyar a promocionar las peliculas, ya que el video si bien no rinde en ingresos si rinde en popularidad siendo mayor que no tenerlo .
+
+
+### 4.16 ¿La popularidad del elenco está directamente correlacionada con el éxito de taquilla?
+
+Para ello podemos hacer una grafica de correlacion. 
+```{r}
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+popularity <- movies %>%
+  select(actorsPopularity, revenue, budget)
+
+
+  
+```
+
+
 
