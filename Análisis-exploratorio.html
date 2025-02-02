@@ -480,21 +480,17 @@ for (var in names(resumen_cualitativas)) {
 ## 4                          United Kingdom        294
 ## 5                                                233</code></pre>
 <pre class="r"><code># Conclusiones y Observaciones
-cat(&quot;\n--- Análisis y Conclusiones ---\n&quot;)</code></pre>
+cat(&quot;\n--- Análisis y Conclusiones ---\n&quot;,
+    &quot;El conjunto de datos contiene&quot;, num_peliculas, 
+    &quot;películas con información en&quot;, num_variables, 
+    &quot;variables. Variables importantes como &#39;budget&#39;, &#39;revenue&#39; y &#39;voteAvg&#39; permiten un análisis financiero y de popularidad. &quot;,
+    &quot;Algunas variables, como &#39;budget&#39; y &#39;revenue&#39;, contienen valores faltantes que deben manejarse para evitar sesgos. &quot;,
+    &quot;El campo &#39;genres&#39; tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros. &quot;,
+    &quot;&#39;runtime&#39; varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas. &quot;,
+    &quot;Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.\n&quot;)</code></pre>
 <pre><code>## 
-## --- Análisis y Conclusiones ---</code></pre>
-<pre class="r"><code>cat(&quot;- El conjunto de datos contiene&quot;, num_peliculas, &quot;películas con información en&quot;, num_variables, &quot;variables.\n&quot;)</code></pre>
-<pre><code>## - El conjunto de datos contiene 10000 películas con información en 27 variables.</code></pre>
-<pre class="r"><code>cat(&quot;- Variables importantes como &#39;budget&#39;, &#39;revenue&#39; y &#39;voteAvg&#39; permiten un análisis financiero y de popularidad.\n&quot;)</code></pre>
-<pre><code>## - Variables importantes como &#39;budget&#39;, &#39;revenue&#39; y &#39;voteAvg&#39; permiten un análisis financiero y de popularidad.</code></pre>
-<pre class="r"><code>cat(&quot;- Algunas variables, como &#39;budget&#39; y &#39;revenue&#39;, contienen valores faltantes que deben manejarse para evitar sesgos.\n&quot;)</code></pre>
-<pre><code>## - Algunas variables, como &#39;budget&#39; y &#39;revenue&#39;, contienen valores faltantes que deben manejarse para evitar sesgos.</code></pre>
-<pre class="r"><code>cat(&quot;- El campo &#39;genres&#39; tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros.\n&quot;)</code></pre>
-<pre><code>## - El campo &#39;genres&#39; tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros.</code></pre>
-<pre class="r"><code>cat(&quot;- &#39;runtime&#39; varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas.\n&quot;)</code></pre>
-<pre><code>## - &#39;runtime&#39; varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas.</code></pre>
-<pre class="r"><code>cat(&quot;- Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.\n&quot;)</code></pre>
-<pre><code>## - Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.</code></pre>
+## --- Análisis y Conclusiones ---
+##  El conjunto de datos contiene 10000 películas con información en 27 variables. Variables importantes como &#39;budget&#39;, &#39;revenue&#39; y &#39;voteAvg&#39; permiten un análisis financiero y de popularidad.  Algunas variables, como &#39;budget&#39; y &#39;revenue&#39;, contienen valores faltantes que deben manejarse para evitar sesgos.  El campo &#39;genres&#39; tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros.  &#39;runtime&#39; varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas.  Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.</code></pre>
 <pre class="r"><code># 2. Diga el tipo de cada una de las variables (cualitativa ordinal o nominal, cuantitativa continua, cuantitativa discreta). 
 tipos_variables &lt;- data.frame(
   Variable = names(movies),

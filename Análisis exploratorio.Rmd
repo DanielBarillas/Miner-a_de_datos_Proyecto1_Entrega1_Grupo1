@@ -4,6 +4,7 @@ output: html_document
 date: "2025-01-31"
 ---
 
+
 ```{r}
 # Cargar librerías necesarias
 library(dplyr)
@@ -59,13 +60,15 @@ for (var in names(resumen_cualitativas)) {
 }
 
 # Conclusiones y Observaciones
-cat("\n--- Análisis y Conclusiones ---\n")
-cat("- El conjunto de datos contiene", num_peliculas, "películas con información en", num_variables, "variables.\n")
-cat("- Variables importantes como 'budget', 'revenue' y 'voteAvg' permiten un análisis financiero y de popularidad.\n")
-cat("- Algunas variables, como 'budget' y 'revenue', contienen valores faltantes que deben manejarse para evitar sesgos.\n")
-cat("- El campo 'genres' tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros.\n")
-cat("- 'runtime' varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas.\n")
-cat("- Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.\n")
+cat("\n--- Análisis y Conclusiones ---\n",
+    "El conjunto de datos contiene", num_peliculas, 
+    "películas con información en", num_variables, 
+    "variables. Variables importantes como 'budget', 'revenue' y 'voteAvg' permiten un análisis financiero y de popularidad. ",
+    "Algunas variables, como 'budget' y 'revenue', contienen valores faltantes que deben manejarse para evitar sesgos. ",
+    "El campo 'genres' tiene múltiples categorías, lo cual es útil para analizar tendencias de géneros. ",
+    "'runtime' varía significativamente, lo que puede usarse para identificar patrones en la duración de las películas. ",
+    "Se identificaron varias películas sin idioma o país de producción especificado, lo cual podría requerir limpieza adicional.\n")
+
 
 
 
