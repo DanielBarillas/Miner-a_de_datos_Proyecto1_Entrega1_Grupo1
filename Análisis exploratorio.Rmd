@@ -1079,8 +1079,7 @@ Podemos ver que la mejor estrategia va a ser tener una pagina web, sin embargo s
 
 Para ello podemos hacer una grafica de correlacion. 
 ```{r}
-library(dplyr)
-library(ggplot2)
+
 
 # Leer el archivo CSV
 movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
@@ -1090,7 +1089,7 @@ popularity <- movies %>%
   select(actorsPopularity, revenue, budget)
 
 # Convertir los valores de actorsPopularity que están separados por "|" en un vector numérico
-# Esto asume que 'actorsPopularity' es una cadena de texto con valores separados por "|"
+
 popularity$actorsPopularity <- sapply(popularity$actorsPopularity, function(x) {
   # Convertir la cadena separada por "|" en un vector numérico
   values <- as.numeric(unlist(strsplit(x, "\\|")))
@@ -1104,24 +1103,129 @@ popularity$ganancia <- (popularity$revenue - popularity$budget) / popularity$rev
 # Filtrar los valores que sean finitos para evitar NaN o infinitos
 popularity <- popularity[is.finite(popularity$ganancia), ]
 
-# Ver la estructura del dataframe para asegurar que se ha aplicado correctamente
-print(popularity)
 
-# Graficar correlación entre actorsPopularity y ganancia
-ggplot(popularity, aes(x = actorsPopularity, y = ganancia)) +
-  geom_point() +  # Puntos de datos
-  geom_smooth(method = "lm", col = "red") +  # Línea de regresión
-  labs(title = "Correlación entre Popularidad del Elenco y Ganancia de Taquilla",
+
+ggplot(popularity, aes(x = actorsPopularity, y = ganancia, fill = ..level..)) +
+  stat_density_2d(geom = "polygon") +
+  labs(title = "Densidad de Popularidad del Elenco vs Ganancia de Taquilla",
        x = "Popularidad del Elenco",
        y = "Ganancia de Taquilla") +
-  theme_minimal() +
-  ylim(0, max(popularity$ganancia, na.rm = TRUE))  # Limitar el eje y hasta el máximo de ganancia
+  ylim(0, max(popularity$ganancia, na.rm = TRUE)) +  # Limita Y de 0 al máximo
+  theme_minimal()
 
-# Calcular el coeficiente de correlación entre popularidad del elenco y ganancia
-correlation <- cor(popularity$actorsPopularity, popularity$ganancia, use = "complete.obs")
-print(paste("Coeficiente de correlación entre Popularidad del Elenco y Ganancia de Taquilla: ", correlation))
+
 
 
 ```
 
+#### Analisis Grafico
+Como podemos ver este grafico la densidad de los actores estan dentro de una ganancia muy alta y una popularidad del elenco siendo entre 10 a 20.  Por lo que se puede intuir en la grafica es que a mientras mas popularidad tenga un elenco puede exitir una mayor ganancia pero la mayoria de las peliculas suelen estar en el rango de una popularidad no tan alta y aun asi lograr exitos en la taquilla.
 
+
+
+#### Conclusiones. 
+Si bien la popularidad influye en las ganancias de una pelicula que sean buenas, no significa que sea el unico factor, debido a que ha habido cintas con menor cantidad de actores populares que han logrado ser muy bien recibidas por el publico. 
+
+
+
+# 5 Genere usted otras seis preguntas que le parezcan interesantes.
+
+
+### 5.1 ¿Cuál es la relación entre el presupuesto y la duración de las películas? ¿Las películas con mayor presupuesto tienden a ser más largas?
+
+Para ello creamos una grafica de correlacion entre la duracion y el presupuesto.
+
+```{r}
+
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+plot(x= movies$budget, y = movies$runtime, pch = 19, col = "lightblue", 
+     xlab = "Presupuesto",  # Título del eje X
+     ylab = "Tiempo de Duracion",
+)
+
+abline(lm(y ~ x), col = "red", lwd = 3)
+
+```
+
+
+#### Analisis grafico
+Como se puede ver la mayoria de peliculas con un tiempo de duracion muy alto suelen tener un presupuesto muy bajo, casi siendo 0. Pero se nota una cierta tendencia a que las peliculas con mayor presupuesto su tiempo de duracion no sea tan largo. Al menos no mas de los 200 minutos.
+
+#### Conclusion
+Las peliculas con mayor presupuesto no tienden a ser mas largas al contrario siempre siguen la tendencia de durar menos de 200 minutos, la relacion entre estas 2 variables no es evidente. 
+
+
+### 5.2 ¿Las peliculas mas largas tienden a tener mayores ingresos?
+
+Para ello realizamos otra grafica
+
+```{r}
+
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+plot(x= movies$runtime, y = movies$revenue, pch = 19, col = "lightblue", 
+     xlab = "Tiempo de Duracion",  # Título del eje X
+     ylab = "Ingresos",
+)
+
+abline(lm(y ~ x), col = "red", lwd = 3)
+
+```
+
+#### Analisis Grafico
+
+Como se puede ver las peliculas mas largas a los 50 minutos si alcanzan una gran cantidad de ingresos, pero tambien llega a un maximo y a partir de ahi mientras mas larga la pelicula menos ingresos genera
+
+#### Conclusion
+Las personas si bien estan dispuestas a consumir peliculas larga, llega a un punto en donde la misma llega a perder retencion, debido a que no genera los ingresos necesarios. Por ende si se espera tener un buen rendimiento es necesario no sobrepasar por los 150 minutos .
+
+
+
+### 5.3 ¿Cómo ha evolucionado la cantidad de películas por género a lo largo de los años?
+Calcularemos las peliculas por genero. Y las agruparemos por año
+```{r}
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+
+movies$releaseYear <- as.numeric(substr(movies$releaseDate, 1, 4))
+
+
+movies_por_anio <- movies %>%
+  select(title,releaseYear, genres) 
+
+movies_por_anio <- movies_por_anio %>%
+  separate_rows(genres, sep = "\\|") %>%  # Divide en varias filas
+  group_by(genres, releaseYear) %>%      # Agrupa por género y año
+  summarise(count = n(), .groups = "drop") # Cuenta las películas
+
+
+ggplot(movies_por_anio, aes(x = releaseYear, y = count, fill = genres)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Número de películas por género y año", 
+       x = "Año de estreno", 
+       y = "Cantidad de películas") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#### Analisis Grafico
+Se puede ver que a lo largo de todos los años todos los generos han tenido mayor cantidad de peliculas, siendo en el 2020 al 2025 donde se ha visto esta enorme tendencia. 
+
+#### Conclusion
+Como se puede ver la cantidad de generos ha aumentado sobre todo aquellos que son documentales o que tratan sobre crimen y drama. A pesar de ello se ha visto una disminucion de producciones el año 2025 y 2024. 
+
+
+
+### 5.4 ¿Cuales fueron los paises que se rodaron filmes con mayor rendimiento?
+
+Calcularemos la ganancia generada y luego la contrastaremos en un grafico de barras con respecto a los paises. 
+
+
+```{r}
+
+
+```
+
+### 5.5 ¿Cuales fueron los paises con las productoras que mas recaudaron ingresos?
+
+### 5.6 ¿El numero de productoras afecta el rendimiento economico de una pelicula?
