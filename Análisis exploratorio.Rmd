@@ -820,12 +820,12 @@ movies$gains <- (as.numeric(movies$revenue) - as.numeric(movies$budget)) / as.nu
 # Eliminar valores Inf o NA en 'gains'
 movies <- movies[is.finite(movies$gains), ]
 
-x <- movies$gains
-y <- movies$voteAvg
+x <- movies$voteAvg
+y <-  movies$gains
 plot(x, y, pch = 19, col = "lightblue", 
-     xlab = "Éxito Comercial (Ganancia Neta)",  # Título del eje X
-     ylab = "Promedio de Calificaciones",
-     xlim = c(0, max(x, na.rm = TRUE)))
+     xlab = "Promedio de Calificaciones ",  # Título del eje X
+     ylab = "Éxito Comercial (Ganancia Neta)",
+     ylim = c(0, max(y, na.rm = TRUE)))
 
 # Agregar la línea de regresión
 abline(lm(y ~ x), col = "red", lwd = 3)
@@ -835,11 +835,11 @@ text(paste("Correlación de Éxito comercial y Calificaciones:", round(cor(x, y)
 
 
 #### Analisis Grafico
-Aun con ello vemos que sigue sin existir relacion, debido a que la mayoria en promedio es calificada con un 6, vemos que una parte importante de las peliculas que son calificadas por la critica por debajo del 6 tienen una ganancia neta del 100%. Lo que indica que su ingresos supero o triplico la ganancias de las peliculas. Aun asi hay muchas cintas que lograron tener muy buena critica y tener un exito comercial.
+Existe relacion, tambien podemos observar que la mayoria en promedio es calificada con un 6, vemos que una parte importante de las peliculas que son calificadas por la critica por debajo del 6 tienen una ganancia neta del 100%. Lo que indica que su ingresos supero o triplico la ganancias de las peliculas. Aun asi hay muchas cintas que lograron tener muy buena critica y tener un exito comercial.
 
 
 #### Conclusion
-Como se puede observar no existe relacion entre el exito comercial y las calificaciones, sin embargo una gran cantidad de peliculas con un puntaje mayor a 6. Hay tenido una rendimiento muy alto en sus ganancias. Lo cual indica que las personas si desean pagar por ver una pelicula buena . 
+Como se puede observar el exito comercial y las calificaciones, sin embargo una gran cantidad de peliculas con un puntaje mayor a 6. Hay tenido una rendimiento muy alto en sus ganancias. Lo cual indica que las personas si desean pagar por ver una pelicula buena . Y de hecho este exito puede ser muy influenciado en la percepcion de lo buena que sea una cinta. 
 
 
 ### 4.15  ¿Qué estrategias de marketing, como videos promocionales o páginas oficiales, generan mejores resultados?
@@ -1068,14 +1068,49 @@ Podemos ver que la mejor estrategia va a ser tener una pagina web, sin embargo s
 
 Para ello podemos hacer una grafica de correlacion. 
 ```{r}
+library(dplyr)
+library(ggplot2)
+
+# Leer el archivo CSV
 movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 
+# Seleccionar las columnas de interés
 popularity <- movies %>%
   select(actorsPopularity, revenue, budget)
 
+# Convertir los valores de actorsPopularity que están separados por "|" en un vector numérico
+# Esto asume que 'actorsPopularity' es una cadena de texto con valores separados por "|"
+popularity$actorsPopularity <- sapply(popularity$actorsPopularity, function(x) {
+  # Convertir la cadena separada por "|" en un vector numérico
+  values <- as.numeric(unlist(strsplit(x, "\\|")))
+  # Retornar el primer valor de la lista como ejemplo (o puedes hacer un promedio si lo prefieres)
+  return(values[1])  # O usa mean(values) si quieres promediar los valores
+})
 
-  
+# Calcular la ganancia de taquilla
+popularity$ganancia <- (popularity$revenue - popularity$budget) / popularity$revenue
+
+# Filtrar los valores que sean finitos para evitar NaN o infinitos
+popularity <- popularity[is.finite(popularity$ganancia), ]
+
+# Ver la estructura del dataframe para asegurar que se ha aplicado correctamente
+print(popularity)
+
+# Graficar correlación entre actorsPopularity y ganancia
+ggplot(popularity, aes(x = actorsPopularity, y = ganancia)) +
+  geom_point() +  # Puntos de datos
+  geom_smooth(method = "lm", col = "red") +  # Línea de regresión
+  labs(title = "Correlación entre Popularidad del Elenco y Ganancia de Taquilla",
+       x = "Popularidad del Elenco",
+       y = "Ganancia de Taquilla") +
+  theme_minimal() +
+  ylim(0, max(popularity$ganancia, na.rm = TRUE))  # Limitar el eje y hasta el máximo de ganancia
+
+# Calcular el coeficiente de correlación entre popularidad del elenco y ganancia
+correlation <- cor(popularity$actorsPopularity, popularity$ganancia, use = "complete.obs")
+print(paste("Coeficiente de correlación entre Popularidad del Elenco y Ganancia de Taquilla: ", correlation))
+
+
 ```
-
 
 
