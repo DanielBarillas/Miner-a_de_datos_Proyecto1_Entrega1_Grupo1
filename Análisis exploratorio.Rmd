@@ -3,7 +3,6 @@ title: "Análisis exploratorio"
 author: 
   - "Pablo Daniel Barillas Moreno, Carné No. 22193"
   - "Mathew Cordero Aquino, Carné No. 22982"
-  - "Realizado por:"
 output:
   pdf_document: default
   html_document: default
