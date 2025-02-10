@@ -1,0 +1,27 @@
+---
+title: "Parte1-Clustering"
+author: 
+  - "Pablo Daniel Barillas Moreno, Carné No. 22193"
+  - "Mathew Cordero Aquino, Carné No. 22982"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-02-02"
+header-includes:
+   - \usepackage{fvextra}
+   - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+repository: "https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entrega1_Grupo1"
+---
+
+### Enlace al Repositorio del Grupo #1
+[Repositorio en GitHub, revisar rama llamada: proyecto1_entrega2 ](https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entrega1_Grupo1.git)
+
+# 1. Clustering
+
+### 1.1. Haga el preprocesamiento del dataset, explique qué variables no aportan información a la generación de grupos y por qué. Describa con qué variables calculará los grupos.
+```{r}
+
+```
+
+
+
