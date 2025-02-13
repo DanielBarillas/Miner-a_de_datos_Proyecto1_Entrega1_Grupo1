@@ -1,5 +1,5 @@
 ---
-title: "Análisis exploratorio"
+title: "Análisis PCA"
 author: 
   - "Pablo Daniel Barillas Moreno, Carné No. 22193"
   - "Mathew Cordero Aquino, Carné No. 22982"
