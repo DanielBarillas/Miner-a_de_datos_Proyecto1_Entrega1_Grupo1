@@ -83,10 +83,10 @@ Tambien vamos a descartar el actorsCharacter, porque es unico por cada actor que
 
 Pero aqui quedaria en productionCompanyCountry y  productionCountry. Ya que esto en realidad no nos aporta nada a los datos que queremos analizar y tampoco es como que exista una correlacion. 
 
-Descartamos actors y ActorsPopularity, no es necesario para las correlaciones, debido a que al ser datos no categoricos no los utilizaremos.Al igual que el director.
+Descartamos actors y ActorsPopularity, no es necesario para las correlaciones, debido a que al ser datos no categoricos no los utilizaremos.Al igual que el director, y productionCompany
 
 
-El problema es que genres, homePage, productionCompany ,  originalLanguage , releaseDate, video .No son enteros completamente sino estan en una lista o son strings. Asi que lo que vamos a hacer es convertirlos a numeros que podamos manejar.
+El problema es que genres, homePage ,  originalLanguage , releaseDate, video .No son enteros completamente sino estan en una lista o son strings. Asi que lo que vamos a hacer es convertirlos a numeros que podamos manejar.
 
 
 
@@ -98,6 +98,7 @@ movies$originalLanguage<- as.numeric(factor(movies$originalLanguage))
 
 - Ahora con el video 
 ```{r}
+movies$video[is.na(movies$video)] <- FALSE
 movies$video<- as.numeric(factor(movies$video))
 ```
 
@@ -126,14 +127,36 @@ for (genre in all_genres) {
   movies_encoded[[genre]] <- sapply(movies$genres, function(x) ifelse(genre %in% x, 1, 0))
 }
 
-# Mostrar el resultado
-print(movies_encoded)
 ```
 
 - Ahora tambien lo hacemos para el releaseDate.Pero aqui extraemos el mes ya que al ver el analisis exploratorio esto se nos pidio
 
 ```{r}
-movies$releaseDate <- as.Date(movies$releaseDate)
-movies$month <- as.numeric(format(movies$releaseDate, "%m"))
-movies$month
+movies_encoded$releaseDate <- as.Date(movies_encoded$releaseDate)
+movies_encoded$month <- as.numeric(format(movies_encoded$releaseDate, "%m"))
 ```
+
+- Como siguiente paso elegiremos ahora las columnas que seleccionamos
+```{r}
+movie_data_selected <- movies_encoded[, c("budget", "homePage", "revenue", "runtime", "video", "originalLanguage", "popularity", "voteAvg", "voteCount", "genresAmount", "productionCoAmount", "productionCountriesAmount", "actorsAmount", "castWomenAmount", "castMenAmount", "Crime","Comedy", "Action", "Thriller", "Adventure", "Science Fiction", "Animation", "Family", "Drama", "Romance", "Mystery", "Fantasy", "War", "Music", "Western", "History", "Horror", "TV Movie", "Documentary", "month")]
+```
+
+- Tambien castWomen y CastMen vienen de tipo string asi que los vamos a castear
+```{r}
+movie_data_selected$castMenAmount <- as.numeric(movie_data_selected$castMenAmount)
+movie_data_selected$castWomenAmount <- as.numeric(movie_data_selected$castWomenAmount)
+movie_data_selected$homePage <- as.numeric(movie_data_selected$homePage)
+
+```
+
+### Vale la pena usar PCA
+
+Para ello vamos a analizar la matriz de correlacion generada. Para ello obtenemos el determinante.
+```{r}
+rcor<-cor(movie_data_selected[,2:ncol(movie_data_selected)],use = "pairwise.complete.obs")
+det_rcor <- det(rcor)
+print(det_rcor)
+```
+
+
+Como puedes observar el valor es de 0.0003006276
