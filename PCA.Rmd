@@ -42,16 +42,12 @@ movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 ## Data Clenaing PCA
 
 Vamos a mostrar primero el tipo de datos que tenemos 
-```{r}
-df$col1 <- as.numeric(df$col1)
 
-
-```
 
 
 | **Variable**                     | **Descripción** |
 |-----------------------------------|----------------|
-| **id**                            | Identificador único de la película (int). |
+| **id**                            | Identificador único de la película (int).|
 | **budget**                        | Presupuesto de la película (float). |
 | **genres**                        | Géneros de la película (string). |
 | **homePage**                      | Página web oficial de la película (string). |
@@ -80,4 +76,64 @@ df$col1 <- as.numeric(df$col1)
 | **castMenAmount**                 | Cantidad de actores en el elenco (int). |
 
 
+### Descarte de columnas
 
+Viendo esto vamos a elegir ciertas columnas. En este caso descartaremos las de id debido a que es solo el id.
+Tambien vamos a descartar el actorsCharacter, porque es unico por cada actor que lo interpreto. Y tambien vamos a descartar originalTitle porque es individual por pelicula. Asi como el title que no aportan nada a la relacion de los datos. 
+
+Pero aqui quedaria en productionCompanyCountry y  productionCountry. Ya que esto en realidad no nos aporta nada a los datos que queremos analizar y tampoco es como que exista una correlacion. 
+
+Descartamos actors y ActorsPopularity, no es necesario para las correlaciones, debido a que al ser datos no categoricos no los utilizaremos.Al igual que el director.
+
+
+El problema es que genres, homePage, productionCompany ,  originalLanguage , releaseDate, video .No son enteros completamente sino estan en una lista o son strings. Asi que lo que vamos a hacer es convertirlos a numeros que podamos manejar.
+
+
+
+### Seleccion y transformacion de Columnas
+- Vamos a convertir el lenguaje original a factor 
+```{r}
+movies$originalLanguage<- as.numeric(factor(movies$originalLanguage))
+```
+
+- Ahora con el video 
+```{r}
+movies$video<- as.numeric(factor(movies$video))
+```
+
+- Ahora con homePage vamos a mapear como 0 los que sean NA y como 1 los que tienen
+```{r}
+
+
+movies <- movies %>%
+  mutate(homePage = ifelse(is.na(homePage), 0, 1),
+         homePage = factor(homePage))
+```
+
+- Ahora procedemos con los generos.
+
+```{r}
+movies$genres <- strsplit(gsub("\\s*\\|\\s*", "|", as.character(movies$genres)), '\\|')
+
+# Obtener todos los géneros únicos
+all_genres <- unique(unlist(movies$genres))
+
+# Crear columnas de one-hot encoding para cada género
+movies_encoded <- movies
+
+# Para cada género único, agregamos una nueva columna
+for (genre in all_genres) {
+  movies_encoded[[genre]] <- sapply(movies$genres, function(x) ifelse(genre %in% x, 1, 0))
+}
+
+# Mostrar el resultado
+print(movies_encoded)
+```
+
+- Ahora tambien lo hacemos para el releaseDate.Pero aqui extraemos el mes ya que al ver el analisis exploratorio esto se nos pidio
+
+```{r}
+movies$releaseDate <- as.Date(movies$releaseDate)
+movies$month <- as.numeric(format(movies$releaseDate, "%m"))
+movies$month
+```
