@@ -24,12 +24,14 @@ if(! "corrplot" %in% installed.packages()) install.packages("corrplot", depend =
 if(! "fpc" %in% installed.packages()) install.packages("fpc", depend = TRUE)
 if(! "factoextra" %in% installed.packages()) install.packages("factoextra", depend = TRUE)
 if(! "PCAmixdata" %in% installed.packages()) install.packages("PCAmixdata", depend = TRUE)
+if(! "paran" %in% installed.packages()) install.packages("paran", depend = TRUE)
 library(psych)
 library(FactoMineR)
 library(fpc)
 library(factoextra)
 library(corrplot)
 library(PCAmixdata)
+library(paran)
 
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 library(dplyr)
@@ -138,7 +140,7 @@ movies_encoded$month <- as.numeric(format(movies_encoded$releaseDate, "%m"))
 
 - Como siguiente paso elegiremos ahora las columnas que seleccionamos
 ```{r}
-movie_data_selected <- movies_encoded[, c("budget", "homePage", "revenue", "runtime", "video", "originalLanguage", "popularity", "voteAvg", "voteCount", "genresAmount", "productionCoAmount", "productionCountriesAmount", "actorsAmount", "castWomenAmount", "castMenAmount", "Crime","Comedy", "Action", "Thriller", "Adventure", "Science Fiction", "Animation", "Family", "Drama", "Romance", "Mystery", "Fantasy", "War", "Music", "Western", "History", "Horror", "TV Movie", "Documentary", "month")]
+movie_data_selected <- movies_encoded[, c("month", "budget", "homePage", "revenue", "runtime", "video", "originalLanguage", "popularity", "voteAvg", "voteCount", "genresAmount", "productionCoAmount", "productionCountriesAmount", "actorsAmount", "castWomenAmount", "castMenAmount", "Crime","Comedy", "Action", "Thriller", "Adventure", "Science Fiction", "Animation", "Family", "Drama", "Romance", "Mystery", "Fantasy", "War", "Music", "Western", "History", "Horror", "TV Movie", "Documentary")]
 ```
 
 - Tambien castWomen y CastMen vienen de tipo string asi que los vamos a castear
@@ -149,14 +151,138 @@ movie_data_selected$homePage <- as.numeric(movie_data_selected$homePage)
 
 ```
 
-### Vale la pena usar PCA
+- Luego tambien vamos a manejar los NA de estas columnas
+```{r}
+for (col in c("castMenAmount", "castWomenAmount")) {
+  movie_data_selected[[col]][is.na(movie_data_selected[[col]])] <- mean(movie_data_selected[[col]], na.rm = TRUE)
+}
+```
 
-Para ello vamos a analizar la matriz de correlacion generada. Para ello obtenemos el determinante.
+### Matriz de Correlacion
+
+Si queremos ver que vale la pena PCA , usaremos la matriz de correlacion generada. Lo que necesitamos de esta es el determinante de esta manera sabremos si hay multicolinealidad.
 ```{r}
 rcor<-cor(movie_data_selected[,2:ncol(movie_data_selected)],use = "pairwise.complete.obs")
 det_rcor <- det(rcor)
 print(det_rcor)
 ```
+Como puedes observar el valor es de 0.0001307035   mientras mas cercana a 0 este significa que las variables si estan relacionadas, por ello podemos usar PCA para seleccionar variables.
 
 
-Como puedes observar el valor es de 0.0003006276
+Ahora tambien podemos ver la matriz generada usando un grafico
+```{r}
+library(corrplot)
+
+
+matriz <- cor(movie_data_selected[,1:ncol(movie_data_selected)], use = "pairwise.complete.obs")
+
+
+corrplot(matriz, method = "color", 
+         tl.cex = 0.6,
+         tl.srt = 90, 
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         cl.cex = 0.7)
+
+```
+
+#### Analisis Grafica
+Podemos observar en la grafica que hay una correlacion evidente entre el conteo de votos y el ingreso de la pelicula. Lo que puede indicar que mientras mas votos esta consiga puede tener mayores ingresos. Dejando de lado lo evidente que mientras mas conteo de generos esten, mayor cantidad de tipos existira. Tenemos que entre los generos que tienen mas correlacion con los ingresos son el de accion y aventura. 
+
+Y que los mas tiempo son aquellas de Drama, Guerra e Historia, esto muy posiblemente porque debido al tipo de genero suelen plantear tramas mas complejas.
+
+Cubriendo las dudas que se plantearon el analisis exploratorio el mes realmente no esta muy relacionada con los ingresos de la pelicula. Tambien podemos ver que el presupuesto de la pelicula si esta correlacionada con sus ingresos. 
+
+Viendo el numero de actores mujeres y hombres, vemos que realmente no tienen correlacion con la popularidad y con los ingresos de una pelicula, solo si cabe resaltar que el numero de actrices tiene una correlacion negativa al tiempo de una pelicula, posiblemente por poco tiempo en pantalla. Y los hombres una positiva con el numero de paises de una productora. Esto puede denotar muy posiblemente un sesgo hacia los hombres, al haber muchas mas productoras presentes en los rodajes. 
+
+Cubriendo la parte del marketing Video no tiene realmente una correlacion con otras variables pero el que si lo tiene es homePage con presupuesto y recaudacion. AL igual que numero de votos de la pelicula. 
+
+Y con respecto a la correlacion de cantidad de actores no hay una evidente con ingresos , pero si con presupuesto. 
+
+
+### KMO
+
+Lo que haremos aqui es si podemos utilizar el analisis factorial con KMO , esto para poder realizar las combinaciones lineales de las variables.
+
+```{r}
+KMO(as.matrix(movie_data_selected[,1:ncol(movie_data_selected)]))
+```
+
+
+#### Analisis 
+
+Podemos ver por el analisis que de hecho es muy malo siendo de 0.1 , lo que indicaria que vamos a obtener malos resultados en nuestro PCA. Pero vemos que hay datos coo el mes, ingresos, homepage , revenue y popularidad que tienen de hecho muy buenos resultados. Entre otros lo que si realizamos PCA nos podria dar muy buenos resultados con solo estas variables. 
+
+
+### Esfericidaad de Bartlett.
+
+```{r}
+library(psych)
+
+bartlett_test <- cortest.bartlett(cor(movie_data_selected, use = "pairwise.complete.obs"), 
+                                  n = nrow(movie_data_selected))
+
+# Esto sirve para mostrar que si es mas pequeño que 0.005
+formatC(bartlett_test$p.value, format = "e", digits = 10)
+
+```
+
+Como podemos ver el valor de P en nuestro test de Bartlett fue de casi 0. Lo que hace este test es ver si la correlaciones son significativas. La hipotesis nula Ho es decir que la matriz de correlacion es una identidad, pero debido a que es 0 y no 1 lo cual seria para una matriz identidad entonces se descarta. Lo que indica que se puede hacer el PCA.
+
+
+### PCA
+
+#### Normalizar
+
+Primero normalizamos los datos que nos dieron.  Y luego obtenemos los componentes.
+
+```{r}
+compPrinc<-prcomp(movie_data_selected[,1:ncol(movie_data_selected)], scale = T)
+summary(compPrinc)
+
+
+
+```
+
+Aqui podemos ver que tenemos 35 componentes. Y podemos ver en la proporcion de la varianza, y la proporcion acumulada que al tener 21 componentes se acumula el 80% de los datos. Si solo obtenemos los primero 3 o 5, no llegamos ni siquiera a describir el 35% de los datos. 
+
+
+Incluso podemos ver los valores propios de los componentes
+```{r}
+valores_propios<-compPrinc$sdev^2
+valores_propios
+```
+Segun la regla del kaiser nos debemos de quedar con los PCA con valores propios mayores a 1. Entonces siguiendo esta regla serian en el PCA14
+
+De hecho los podemos ver un grafico como el siguiente . 
+
+
+
+
+```{r}
+library(ggplot2)
+
+fviz_eig(compPrinc, addlabels = TRUE, labelsize = 3, ylim = c(0, 9.5), ncp = 25) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+
+```
+
+
+#### Analisis Grafico
+
+Podemos ver que en el grafico despues de los primeros 15 PCA se estabiliza el codo. Estos primeros 14 PCA pertenecen al 63% de la descripcion de los datos. Asi que despues de hacer el analisis podemos notar que la regla del Kaiser si aplico de manera correcta 
+
+
+#### Prueba de Paralelismo
+
+Lo que hace esta prueba es simular eigenvalores por los PCA definidos, y nos arrojara puntos de encuentros de esta misma de los PCA y los valores generados por estos
+
+
+```{r}
+paran(movie_data_selected[,1:ncol(movie_data_selected)], graph=TRUE)
+
+```
+#### Seleccionar Componentes
+
+Lo primero que vamos a hacer es utilizar la regla del Kaiser, esta regla nos dira 
