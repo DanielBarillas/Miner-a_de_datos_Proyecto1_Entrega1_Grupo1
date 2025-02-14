@@ -4,8 +4,8 @@ author:
   - "Pablo Daniel Barillas Moreno, Carné No. 22193"
   - "Mathew Cordero Aquino, Carné No. 22982"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 date: "2025-02-02"
 header-includes:
    - \usepackage{fvextra}
@@ -17,7 +17,20 @@ repository: "https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entreg
 [Repositorio en GitHub](https://github.com/DanielBarillas/Miner-a_de_datos_Proyecto1_Entrega1_Grupo1.git)
 
 
-```{r setup, include=FALSE} 
+```{r setup, include=FALSE}
+if(! "psych" %in% installed.packages()) install.packages("psych", depend = TRUE)
+if(! "FactoMineR" %in% installed.packages()) install.packages("FactoMineR", depend = TRUE)
+if(! "corrplot" %in% installed.packages()) install.packages("corrplot", depend = TRUE)
+if(! "fpc" %in% installed.packages()) install.packages("fpc", depend = TRUE)
+if(! "factoextra" %in% installed.packages()) install.packages("factoextra", depend = TRUE)
+if(! "PCAmixdata" %in% installed.packages()) install.packages("PCAmixdata", depend = TRUE)
+library(psych)
+library(FactoMineR)
+library(fpc)
+library(factoextra)
+library(corrplot)
+library(PCAmixdata)
+
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 library(dplyr)
 library(ggplot2)
@@ -25,3 +38,46 @@ library(tidyr)
 library(nortest)
 movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 ```
+
+## Data Clenaing PCA
+
+Vamos a mostrar primero el tipo de datos que tenemos 
+```{r}
+df$col1 <- as.numeric(df$col1)
+
+
+```
+
+
+| **Variable**                     | **Descripción** |
+|-----------------------------------|----------------|
+| **id**                            | Identificador único de la película (int). |
+| **budget**                        | Presupuesto de la película (float). |
+| **genres**                        | Géneros de la película (string). |
+| **homePage**                      | Página web oficial de la película (string). |
+| **productionCompany**             | Compañías productoras de la película (string). |
+| **productionCompanyCountry**      | Países de las compañías productoras (string). |
+| **productionCountry**             | Países donde se llevó a cabo la producción (string). |
+| **revenue**                       | Ingresos generados por la película (float). |
+| **runtime**                       | Duración de la película en minutos (float). |
+| **video**                         | Indica si la película tiene videos promocionales (boolean). |
+| **director**                      | Director de la película (string). |
+| **actors**                        | Lista de actores que participan en la película (string). |
+| **actorsPopularity**              | Índice de popularidad del elenco (float). |
+| **actorsCharacter**               | Personajes interpretados por los actores (string). |
+| **originalTitle**                 | Título original de la película en su idioma (string). |
+| **title**                         | Título de la película en inglés (string). |
+| **originalLanguage**              | Idioma original de la película (string). |
+| **popularity**                    | Índice de popularidad semanal de la película (float). |
+| **releaseDate**                   | Fecha de lanzamiento de la película (string). |
+| **voteAvg**                        | Promedio de votos en la plataforma (float). |
+| **voteCount**                     | Número de votos recibidos en la plataforma (int). |
+| **genresAmount**                  | Cantidad de géneros asignados a la película (int). |
+| **productionCoAmount**            | Número de compañías productoras involucradas (int). |
+| **productionCountriesAmount**     | Número de países donde se rodó la película (int). |
+| **actorsAmount**                  | Cantidad total de actores en la película (int). |
+| **castWomenAmount**               | Cantidad de actrices en el elenco (int). |
+| **castMenAmount**                 | Cantidad de actores en el elenco (int). |
+
+
+
