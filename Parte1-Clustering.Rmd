@@ -489,44 +489,62 @@ Investigación de mercado: Para identificar tendencias en la industria del cine.
 
 ### 1.5. Determine la calidad del agrupamiento hecho por cada algoritmo con el método de la silueta. Discuta los resultados.
 ```{r}
+# Cargar librerías necesarias
 library(cluster)   # Para clustering jerárquico y análisis de silueta
 library(factoextra) # Para visualización
 library(ggplot2)    # Para gráficos
-library(dplyr)      # Para manipulación de datos
 
-# Validar que movies_clustering_scaled solo tenga variables numéricas
-movies_clustering_scaled <- movies_clustering_scaled %>%
-  select_if(is.numeric) 
+# Definir el tamaño de la muestra para mejorar el rendimiento
+sample_size <- 2000  # Reducimos el tamaño para mejorar la velocidad
 
-# Evaluar la calidad del clustering usando el método de la silueta para K-Means
-silhouette_kmeans <- silhouette(kmeans_result$cluster, dist(movies_clustering_scaled))
+# Verificar si el número de filas es mayor al sample_size
+if (nrow(movies_clustering_scaled) > sample_size) {
+  set.seed(123)
+  sample_indices <- sample(1:nrow(movies_clustering_scaled), sample_size)
+  sampled_data <- movies_clustering_scaled[sample_indices, ]
+  sampled_kmeans_clusters <- kmeans_result$cluster[sample_indices]  # Filtrar clusters K-Means
+  sampled_hc_clusters <- hc_clusters[sample_indices]  # Filtrar clusters Jerárquicos
+} else {
+  sampled_data <- movies_clustering_scaled
+  sampled_kmeans_clusters <- kmeans_result$cluster
+  sampled_hc_clusters <- hc_clusters
+}
 
-# Calcular la media del ancho de silueta para K-Means
-avg_sil_kmeans <- mean(silhouette_kmeans[, 3])
+# Calcular la matriz de distancias para la muestra
+dist_matrix_sil <- dist(sampled_data, method = "euclidean")
 
-# Visualizar la silueta para K-Means
-fviz_silhouette(silhouette_kmeans) +
-  labs(title = paste("Análisis de Silueta - K-Means (Media:", round(avg_sil_kmeans, 2), ")"))
+### **1. Evaluar la calidad del clustering usando el método de la silueta para K-Means**
+# Convertir los clusters de K-Means a enteros y eliminar valores NA
+sampled_kmeans_clusters_numeric <- as.integer(sampled_kmeans_clusters)
+sampled_kmeans_clusters_numeric <- na.omit(sampled_kmeans_clusters_numeric)
 
-# Evaluar la calidad del clustering usando el método de la silueta para Clustering Jerárquico
-hc_clusters_numeric <- as.numeric(as.character(hc_clusters))  # Asegurar que es numérico
-silhouette_hc <- silhouette(hc_clusters_numeric, dist(movies_clustering_scaled))
+# Verificar si hay valores NA o si las longitudes coinciden antes de aplicar silhouette
+if (length(sampled_kmeans_clusters_numeric) == nrow(sampled_data) && !any(is.na(dist_matrix_sil))) {
+  silhouette_kmeans <- silhouette(sampled_kmeans_clusters_numeric, dist_matrix_sil)
 
-# Calcular la media del ancho de silueta para Clustering Jerárquico
-avg_sil_hc <- mean(silhouette_hc[, 3])
+  # Visualizar la silueta para K-Means
+  fviz_silhouette(silhouette_kmeans) +
+    labs(title = "Análisis de Silueta - K-Means")
+} else {
+  cat("Error: La cantidad de clusters de K-Means no coincide con la muestra o hay valores NA.\n")
+}
 
-# Visualizar la silueta para Clustering Jerárquico
-fviz_silhouette(silhouette_hc) +
-  labs(title = paste("Análisis de Silueta - Clustering Jerárquico (Media:", round(avg_sil_hc, 2), ")"))
+### **2. Evaluar la calidad del clustering usando el método de la silueta para Clustering Jerárquico**
+# Convertir clusters jerárquicos a enteros y eliminar valores NA
+sampled_hc_clusters_numeric <- as.integer(sampled_hc_clusters)
+sampled_hc_clusters_numeric <- na.omit(sampled_hc_clusters_numeric)
 
-# Conclusiones
-cat("\n--- Evaluación de la Calidad del Agrupamiento ---\n",
-    "1. Media del coeficiente de silueta para K-Means:", round(avg_sil_kmeans, 3), "\n",
-    "2. Media del coeficiente de silueta para Clustering Jerárquico:", round(avg_sil_hc, 3), "\n",
-    "3. Si el coeficiente de silueta está cerca de 1, los clusters están bien separados.\n",
-    "4. Si el coeficiente de silueta es cercano a 0, los clusters se solapan.\n",
-    "5. Si hay valores negativos, significa que algunos puntos pueden estar mal asignados.\n",
-    "6. Comparando los valores, el método con un coeficiente más alto es el que mejor segmenta los datos.")
+# Verificar si hay valores NA o si las longitudes coinciden antes de aplicar silhouette
+if (length(sampled_hc_clusters_numeric) == nrow(sampled_data) && !any(is.na(dist_matrix_sil))) {
+  silhouette_hc <- silhouette(sampled_hc_clusters_numeric, dist_matrix_sil)
+
+  # Visualizar la silueta para Clustering Jerárquico
+  fviz_silhouette(silhouette_hc) +
+    labs(title = "Análisis de Silueta - Clustering Jerárquico")
+} else {
+  cat("Error: La cantidad de clusters jerárquicos no coincide con la muestra o hay valores NA.\n")
+}
+
 ```
 ### Conclusiones sobre la Evaluación de la Calidad del Agrupamiento
 
