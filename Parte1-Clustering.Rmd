@@ -4,8 +4,8 @@ author:
   - "Pablo Daniel Barillas Moreno, Carné No. 22193"
   - "Mathew Cordero Aquino, Carné No. 22982"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2025-02-02"
 header-includes:
    - \usepackage{fvextra}
@@ -37,7 +37,7 @@ Para realizar un análisis de clustering efectivo, es necesario eliminar variabl
 
 ➢ id: Es un identificador único de cada película, no aporta información relevante para la segmentación.
 
-➢ title y originalTitle: Son nombres de películas y no tienen valor numérico para el análisis de clustering.
+➢ title y originalTitle: Son nombres de películas y no tienen valor numérico para el análisis de clustering. 
 
 ➢ homePage: Contiene URLs, lo cual no aporta valor en el análisis de similitud entre películas.
 
@@ -103,19 +103,81 @@ movies_clustering_scaled <- as.data.frame(scale(movies_clustering))
 
 # Mostrar resumen después del preprocesamiento
 summary(movies_clustering_scaled)
-
 ```
+### Conclusiones del Preprocesamiento de Datos y Selección de Variables para Clustering
+
+1. Eliminación de Variables No Relevantes
+
+Se removieron variables categóricas y no numéricas (id, title, originalTitle, homePage, productionCompany, productionCompanyCountry, actors, director, releaseDate, video, originalLanguage), ya que no aportaban información útil para el clustering basado en distancia.
+
+Esto asegura que el análisis se realice únicamente con datos cuantitativos y que la segmentación no se vea afectada por información textual irrelevante.
+
+2.Selección de Variables Numéricas
+
+Se conservaron 12 variables numéricas que son fundamentales para la agrupación de películas:
+
+Cuantitativas continuas: budget, revenue, popularity, voteAvg, runtime
+Cuantitativas discretas: voteCount, genresAmount, productionCoAmount, productionCountriesAmount, actorsAmount, castWomenAmount, castMenAmount
+
+Estas variables permiten segmentar las películas según factores financieros, de producción, de casting y de popularidad.
+
+3.Tratamiento de Datos Faltantes
+
+Se aplicó na.omit() para eliminar filas con valores nulos. Esto evita que las técnicas de clustering sean afectadas por la ausencia de información.
+
+En el dataset original había 10,000 películas, y tras la limpieza se eliminaron las películas con valores faltantes.
+
+4.Normalización de Variables (Z-score)
+
+Se utilizó scale() para transformar todas las variables numéricas a una distribución con media = 0 y desviación estándar = 1.
+
+La normalización es clave para evitar que variables con escalas más grandes (como revenue que puede estar en millones) dominen otras variables con escalas más pequeñas (voteAvg con valores entre 1 y 10).
+
+5. Distribución de las Variables Normalizadas
+
+La mayoría de las variables están sesgadas a la derecha (distribución asimétrica positiva).
+
+budget, revenue, voteCount, popularity, runtime, productionCoAmount, y productionCountriesAmount muestran una acumulación de valores bajos con una cola larga hacia valores altos.
+
+Esto significa que la mayoría de las películas tienen bajo presupuesto, ingresos moderados, pocas productoras y un alcance limitado, mientras que solo unas pocas películas tienen valores extremadamente altos en estas métricas.
+
+La variable voteAvg es la única con una distribución aproximadamente normal.
+
+La calificación de las películas tiende a centrarse en valores intermedios, con menos películas en los extremos.
+
+6. Consideraciones para el Clustering
+
+Dado que las variables presentan una alta variabilidad y sesgo, podría ser útil explorar transformaciones logarítmicas en variables como budget, revenue, popularity, voteCount para mejorar la segmentación.
+
+El clustering se basará en estas características numéricas, lo que permitirá identificar películas con patrones similares en términos de presupuesto, ingresos, duración, cantidad de votos y participación de actores.
+
 ```{r}
 library(ggplot2)
+library(reshape2)
 
-# Seleccionar algunas variables representativas para visualizar su distribución
-variables_seleccionadas <- movies_clustering_scaled[, c("budget", "revenue", "voteAvg", "voteCount", "runtime")]
+# Ver qué variables existen realmente en movies_clustering_scaled
+print(colnames(movies_clustering_scaled))
+
+# Seleccionar solo las variables que sí existen
+variables_disponibles <- intersect(colnames(movies_clustering_scaled), 
+                                   c("budget", "revenue", "voteAvg", "voteCount", "runtime",
+                                     "popularity", "genresAmount", "actorsAmount", 
+                                     "castWomenAmount", "castMenAmount", "productionCoAmount",
+                                     "productionCountriesAmount"))
+
+# Asegurar que la selección no esté vacía
+if (length(variables_disponibles) == 0) {
+  stop("No hay variables disponibles para graficar.")
+}
+
+# Seleccionar solo las columnas que realmente existen en el dataset
+variables_filtradas <- movies_clustering_scaled[, variables_disponibles]
 
 # Convertir a formato largo para ggplot
-movies_long <- reshape2::melt(variables_seleccionadas)
+movies_long_filtrado <- melt(variables_filtradas)
 
-# Crear gráfica de densidad
-ggplot(movies_long, aes(x = value, fill = variable)) +
+# Crear gráfica de densidad para todas las variables seleccionadas
+ggplot(movies_long_filtrado, aes(x = value, fill = variable)) +
   geom_density(alpha = 0.5) +
   facet_wrap(~ variable, scales = "free") +
   theme_minimal() +
@@ -123,7 +185,21 @@ ggplot(movies_long, aes(x = value, fill = variable)) +
        x = "Valor Normalizado",
        y = "Densidad")
 ```
+### Conclusiones sobre la Distribución de Variables Normalizadas
 
+1. La mayoría de las variables presentan una distribución altamente sesgada a la derecha, indicando que la mayoría de las películas tienen valores bajos en presupuesto, ingresos, popularidad y cantidad de votos, mientras que unas pocas películas tienen valores extremadamente altos.
+
+2. La variable voteAvg muestra una distribución más simétrica y con forma de campana, lo que sugiere que las calificaciones de las películas están más equilibradas y siguen un comportamiento normal.
+
+3. Budget y revenue tienen colas largas, lo que indica la presencia de películas con presupuestos e ingresos muy elevados, posiblemente grandes producciones de Hollywood.
+
+4. La variable voteCount también está sesgada a la derecha, lo que sugiere que pocas películas reciben una gran cantidad de votos, mientras que la mayoría tiene un número bajo de votaciones.
+
+5. La variable runtime tiene una distribución con picos marcados cerca de ciertos valores comunes, lo que podría indicar duraciones estándar en la industria cinematográfica.
+
+6. Variables como productionCoAmount y genresAmount tienen distribuciones con varios picos, lo que sugiere que hay ciertos valores más frecuentes para la cantidad de productoras y géneros por película.
+
+7. ActorsAmount y productionCountriesAmount presentan valores extremos en algunos casos, indicando películas con un elenco muy grande o producciones con múltiples países involucrados.
 
 ### 1.2. Analice la tendencia al agrupamiento usando el estadístico de Hopkings y la VAT (Visual Assessment of cluster Tendency). Esta última hágala si es posible, teniendo en cuenta las dimensiones del conjunto de datos. Discuta sus resultados e impresiones.
 
@@ -133,51 +209,80 @@ library(dplyr)
 library(ggplot2)
 library(clustertend) # Para análisis de tendencia al agrupamiento
 library(factoextra)  # Para visualización de distancias
+library(cluster)     # Para manejo de distancias
 
-# 1. Cargar dataset limpio
+# 1. Cargar dataset limpio y seleccionar variables relevantes
 movies_cleaned <- movies %>%
   filter(!is.na(originalLanguage) & originalLanguage != "",
          !is.na(productionCountry) & productionCountry != "",
          !is.na(budget) & budget > 0,
          !is.na(revenue) & revenue > 0,
          !is.na(runtime) & runtime > 0) %>%
-  select(budget, revenue, runtime, voteAvg, voteCount)  # Seleccionar solo variables relevantes
+  select(budget, revenue, runtime, voteAvg, voteCount, popularity, 
+         genresAmount, productionCoAmount, productionCountriesAmount, 
+         actorsAmount, castWomenAmount, castMenAmount)
 
-# Normalizar los datos
-movies_scaled <- scale(movies_cleaned)
+# Convertir columnas erróneas a numéricas
+movies_cleaned <- movies_cleaned %>%
+  mutate(
+    castWomenAmount = as.numeric(castWomenAmount),
+    castMenAmount = as.numeric(castMenAmount)
+  )
 
-# Mostrar un resumen del dataset limpio
-summary(movies_scaled)
+# Verificar si todas las columnas son numéricas
+str(movies_cleaned)  
 
-# 2. Prueba de Hopkins
+# 2. Eliminar valores faltantes si los hay
+movies_cleaned <- na.omit(movies_cleaned)
+
+# 3. Normalizar los datos usando Z-score (solo columnas numéricas)
+movies_scaled <- as.data.frame(scale(movies_cleaned))
+
+# Revisar si todas las columnas fueron escaladas correctamente
+str(movies_scaled)  
+
+# 4. Prueba de Hopkins para evaluar tendencia al clustering
 set.seed(123)  # Fijar semilla para reproducibilidad
-hopkins_stat <- hopkins(movies_scaled, n = nrow(movies_scaled) * 0.1)  # Usamos el 10% de los datos
-hopkins_stat
 
-# 3. Visual Assessment of Cluster Tendency (VAT)
+# Controlar el tamaño de la muestra para evitar que el código se quede atascado
+num_muestras <- min(500, nrow(movies_scaled))  # Máximo 500 muestras
+
+# Evaluar el estadístico de Hopkins
+hopkins_stat <- hopkins(movies_scaled, n = num_muestras)  
+print(hopkins_stat)
+
+# 5. Visual Assessment of Cluster Tendency (VAT)
 if (nrow(movies_scaled) < 5000) {
   fviz_dist(dist(movies_scaled), show_labels = FALSE) +
     ggtitle("VAT - Evaluación Visual de la Tendencia al Agrupamiento")
 } else {
-  cat("El dataset es demasiado grande para la VAT. Se recomienda usar una muestra.")
+  cat("El dataset es demasiado grande para la VAT. Se recomienda usar una muestra.\n")
 }
 
-# 4. Conclusiones
+# 6. Conclusiones sobre la tendencia al agrupamiento
 cat("\n--- Análisis y Conclusiones ---\n",
-    "1. El estadístico de Hopkins es", round(hopkins_stat$H, 3), ".\n")
+    "1. El estadístico de Hopkins es", round(hopkins_stat$H, 3), ".\n",
+    "   - Si Hopkins > 0.75: los datos tienen una fuerte tendencia a agruparse.\n",
+    "   - Si Hopkins entre 0.5 y 0.75: hay una estructura de clustering moderada.\n",
+    "   - Si Hopkins < 0.5: los datos están distribuidos aleatoriamente y no se recomienda clustering.\n",
+    "2. El VAT muestra si hay bloques definidos en la matriz de distancias.\n",
+    "   - Si hay bloques visibles, es probable que el clustering sea útil.\n",
+    "   - Si la matriz se ve homogénea, los datos pueden no ser adecuados para clustering.\n",
+    "3. En base a los resultados, si el valor de Hopkins es cercano a 0.75 o mayor, podemos proceder con técnicas de clustering para encontrar patrones en los datos.\n")
 ```
 ### Interpretación del estadístico de Hopkins:
 
-Si Hopkins > 0.75: los datos tienen una fuerte tendencia a agruparse.
-Si Hopkins está entre 0.5 y 0.75: hay una estructura de clustering moderada.
-Si Hopkins < 0.5: los datos están distribuidos aleatoriamente y no se recomienda clustering.
-Interpretación de VAT (Visual Assessment of cluster Tendency):
+📌 Conclusiones finales sobre el análisis de la tendencia al agrupamiento con el estadístico de Hopkins
 
-Si hay bloques visibles, es probable que el clustering sea útil.
-Si la matriz se ve homogénea, los datos pueden no ser adecuados para clustering.
+1. El valor obtenido de Hopkins es 0.039, lo que indica que los datos tienen una fuerte tendencia al agrupamiento.
 
-Conclusión:
-El resultado de Hopkins = 0.069 confirma que sí hay una estructura natural de clusters en los datos, por lo que vale la pena aplicar clustering para agrupar las películas en diferentes categorías.
+2. La estadística de Hopkins mide qué tan aleatoriamente están distribuidos los datos en comparación con un proceso de Poisson. En este caso, el valor cercano a 0 confirma que los datos están altamente estructurados y tienden a formar clusters naturales.
+
+3. Dado que los datos presentan una estructura de agrupamiento clara, es viable aplicar técnicas de clustering como K-Means o Clustering Jerárquico para identificar grupos significativos.
+
+4. Si el valor de Hopkins hubiera estado cerca de 0.5, habría significado que los datos están dispersos de manera aleatoria, lo que haría que el clustering no fuera adecuado.
+
+5. La validación visual mediante VAT (Visual Assessment of cluster Tendency) complementará este análisis, permitiendo confirmar si los clusters están bien definidos en la matriz de distancias.
 
 ### 1.3. Determine cuál es el número de grupos a formar más adecuado para los datos que está trabajando. Haga una gráfica de codo y explique la razón de la elección de la cantidad de clústeres con la que trabajará.
 
@@ -199,76 +304,101 @@ wss <- sapply(1:max_clusters, function(k) {
   kmeans(movies_scaled, centers = k, nstart = 25)$tot.withinss
 })
 
-# Graficar el método del codo
+# Determinar el número óptimo de clusters (el punto de codo en 3)
+optimal_k <- 3
+
+# Graficar el método del codo con K = 3
 fviz_nbclust(movies_scaled, kmeans, method = "wss") +
-  geom_vline(xintercept = which.min(diff(diff(wss))), linetype = 2, color = "red") +
+  geom_vline(xintercept = optimal_k, linetype = 2, color = "red") +
+  annotate("text", x = optimal_k, y = max(wss) * 0.8, label = paste("Óptimo:", optimal_k),
+           color = "red", size = 5, fontface = "bold") +
   labs(title = "Método del Codo para determinar el número óptimo de clusters",
        x = "Número de Clusters",
        y = "Suma de Cuadrados Dentro de los Clusters (WSS)")
 ```
 ### Conclusiones del Análisis del Número Óptimo de Clusters:
 
-1. La gráfica del método del codo muestra un punto de inflexión alrededor de k = 8, lo que sugiere que este es el número óptimo de clusters.
+1. El codo se encuentra en k = 3, lo que indica que este es el número óptimo de clusters según la suma de cuadrados dentro del cluster (WSS).
 
-2. A medida que el número de clusters aumenta, la suma de cuadrados dentro del cluster (WSS) disminuye, pero después de k = 8 la reducción en WSS es menos significativa.
+2. A partir de k = 3, la reducción en la WSS se vuelve menos significativa, lo que sugiere que agregar más clusters no mejora considerablemente la segmentación.
 
-3. La elección de k = 8 balancea la reducción de WSS y la interpretabilidad de los clusters.
+3. Elegir k = 3 permite obtener una estructura de agrupamiento clara sin sobresegmentar los datos, lo que facilita la interpretación de los grupos.
 
-4. Se procederá con la agrupación de los datos utilizando k = 8 para asegurar una segmentación adecuada y evitar la sobre-partición de los datos.
+4. Un número mayor de clusters podría llevar a una clasificación más específica, pero también podría introducir ruido en la segmentación.
+
+5. Con esta cantidad de clusters, podemos proceder con K-Means y Clustering Jerárquico para evaluar la separación efectiva de los datos.
 
 ### 1.4. Utilice los algoritmos k-medias y clustering jerárquico para agrupar. Compare los resultados generados por cada uno.
 
 ```{r}
-library(cluster)   # Para clustering jerárquico
-library(factoextra) # Para visualizar clustering
-library(dplyr)     # Para manipulación de datos
-library(ggplot2)   # Para modificar la leyenda
+# Cargar librerías necesarias
+library(cluster)      # Para clustering jerárquico
+library(factoextra)   # Para visualización clustering
+library(dplyr)        # Para manipulación de datos
+library(ggplot2)      # Para gráficos
+library(fastcluster)  # Para clustering jerárquico optimizado
+library(dbscan)       # Para DBSCAN (alternativa más rápida)
+library(doParallel)   # Para paralelizar cálculos
 
 # Definir el número de clusters óptimo basado en el método del codo
-num_clusters <- 8  # Basado en el análisis previo del codo
+num_clusters <- 3  
 
-# Asegurar que el dataset tiene solo variables numéricas
+# Verificar que el dataset está definido
+if (!exists("movies_clustering_scaled")) {
+  stop("Error: El dataset 'movies_clustering_scaled' no está definido.")
+}
+
+# Seleccionar solo variables numéricas
 movies_clustering_scaled <- movies_clustering_scaled %>%
-  select_if(is.numeric)  
+  select_if(is.numeric)
 
-### **1. K-MEANS CLUSTERING**
-set.seed(123)  # Para reproducibilidad
-kmeans_result <- kmeans(movies_clustering_scaled, centers = num_clusters, nstart = 25)
+### **1. K-MEANS OPTIMIZADO (Paralelización)**
+set.seed(123)
 
-# Agregar los clusters a la data
-movies_clustered <- movies_clustering_scaled
-movies_clustered <- as.data.frame(movies_clustered)  # Asegurar que es un data frame
-movies_clustered$cluster <- as.factor(kmeans_result$cluster)  # Convertir a factor
+# Habilitar paralelización en múltiples núcleos
+num_cores <- detectCores() - 1
+registerDoParallel(cores = num_cores)
 
-# Definir nombres interpretativos para los clusters
+kmeans_result <- kmeans(movies_clustering_scaled, centers = num_clusters, nstart = 10)  # Reducido a 10
+
+# Agregar clusters al dataset
+movies_clustered <- as.data.frame(movies_clustering_scaled)  
+movies_clustered$cluster <- as.factor(kmeans_result$cluster)
+
+# Definir nombres interpretativos basados en patrones observados
 cluster_names <- c(
-  "Independientes de Bajo Presupuesto",
-  "Internacionales de Bajo Presupuesto",
   "Blockbusters",
   "Películas Comerciales",
-  "Películas de Estudio",
-  "Producciones con Múltiples Estudios",
-  "Películas con Baja Aceptación",
-  "Producciones de Alto Presupuesto"
+  "Películas de Bajo Presupuesto"
 )
 
-# Reemplazar los números de cluster por los nombres en la leyenda
+# Asignar nombres interpretativos
 movies_clustered$cluster_named <- factor(movies_clustered$cluster, 
                                          levels = 1:num_clusters, 
                                          labels = cluster_names)
 
-# Visualizar los clusters con reducción de dimensionalidad usando PCA
-fviz_cluster(kmeans_result, data = movies_clustering_scaled, geom = "point", ellipse = TRUE) +
+# Visualización de Clusters con PCA
+fviz_cluster(list(data = movies_clustering_scaled, cluster = kmeans_result$cluster), 
+             geom = "point", ellipse = TRUE) +
   labs(title = "Clusters formados con K-Means") +
   scale_color_discrete(name = "Cluster", labels = cluster_names) +
   scale_shape_discrete(name = "Cluster", labels = cluster_names)
 
-### **2. CLUSTERING JERÁRQUICO**
-# Calcular la matriz de distancias
-dist_matrix <- dist(movies_clustering_scaled, method = "euclidean")
+### **2. CLUSTERING JERÁRQUICO OPTIMIZADO**
+# Muestrear si el dataset es demasiado grande
+sample_size <- 2000
+if (nrow(movies_clustering_scaled) > sample_size) {
+  set.seed(123)
+  sampled_data <- movies_clustering_scaled[sample(1:nrow(movies_clustering_scaled), sample_size), ]
+} else {
+  sampled_data <- movies_clustering_scaled
+}
 
-# Aplicar clustering jerárquico con el método de enlace completo
-hc_complete <- hclust(dist_matrix, method = "complete")
+# Calcular distancia con la métrica Manhattan (más rápida)
+dist_matrix <- dist(sampled_data, method = "manhattan")
+
+# Aplicar clustering jerárquico optimizado
+hc_complete <- fastcluster::hclust(dist_matrix, method = "ward.D2")
 
 # Dendrograma
 plot(hc_complete, labels = FALSE, main = "Dendrograma - Clustering Jerárquico", sub = "", xlab = "")
@@ -276,233 +406,280 @@ plot(hc_complete, labels = FALSE, main = "Dendrograma - Clustering Jerárquico",
 # Cortar el dendrograma en el mismo número de clusters que K-Means
 hc_clusters <- cutree(hc_complete, k = num_clusters)
 
-# Asignar los clusters jerárquicos a los datos con nombres
-movies_clustered$Cluster_Hierarchical <- factor(hc_clusters, 
-                                                levels = 1:num_clusters, 
-                                                labels = cluster_names)
+# Asignar clusters jerárquicos al dataset
+if (length(hc_clusters) == nrow(sampled_data)) {
+  movies_clustered$Cluster_Hierarchical <- factor(hc_clusters, 
+                                                  levels = 1:num_clusters, 
+                                                  labels = cluster_names)
+}
 
-# Visualización de clusters jerárquicos
+# Visualización de Clustering Jerárquico
 fviz_dend(hc_complete, k = num_clusters, rect = TRUE, show_labels = FALSE)
+
+### **3. DBSCAN (Optimizado con validación y muestreo)**
+set.seed(123)
+
+# Si el dataset es grande, usar una muestra aleatoria
+dbscan_sample_size <- 2000
+if (nrow(movies_clustering_scaled) > dbscan_sample_size) {
+  set.seed(123)
+  dbscan_sample <- movies_clustering_scaled[sample(1:nrow(movies_clustering_scaled), dbscan_sample_size), ]
+} else {
+  dbscan_sample <- movies_clustering_scaled
+}
+
+# Ajustar parámetros eps y minPts para evitar que todos sean ruido
+eps_value <- 0.5  
+minPts_value <- 5  
+
+# Aplicar DBSCAN con muestreo
+dbscan_result <- dbscan(dbscan_sample, eps = eps_value, minPts = minPts_value)
+
+# Validar si DBSCAN asignó clusters válidos
+if (length(unique(dbscan_result$cluster)) > 1) {
+  movies_clustered$cluster_dbscan <- as.factor(dbscan_result$cluster)
+  
+  # Visualización de DBSCAN
+  fviz_cluster(list(data = dbscan_sample, cluster = dbscan_result$cluster), 
+               geom = "point", ellipse = TRUE) +
+    labs(title = "Clusters formados con DBSCAN") +
+    scale_color_discrete(name = "Cluster") +
+    scale_shape_discrete(name = "Cluster")
+} else {
+  cat("DBSCAN no detectó suficientes clusters válidos. Ajusta eps y minPts.\n")
+}
 ```
-### Conclusiones comparativas entre K-Means y Clustering Jerárquico:
+### Conclusiones del Análisis de Clustering
 
-1. K-Means ha identificado 8 clusters en el dataset, aunque algunos clusters están más dispersos y solapados en el espacio reducido por PCA. Esto indica que los datos presentan cierto grado de continuidad en sus características.
+1. Clustering con K-Means
+Se han identificado tres grupos principales en el conjunto de datos:
 
-2. La elección de 8 clusters en K-Means parece razonable según el método del codo, pero el dendrograma sugiere que tal vez se podrían formar menos o más clusters dependiendo del umbral de corte.
+Blockbusters (rojo): Películas con altos ingresos, gran popularidad y muchas votaciones
+.
+Películas Comerciales (verde): Producciones de éxito moderado en taquilla y crítica.
 
-3. K-Means es útil para una clasificación rápida y basada en centroides, pero el clustering jerárquico es más interpretativo y permite evaluar la estructura de los datos antes de decidir cuántos grupos usar.
+Películas de Bajo Presupuesto (azul): Producciones con ingresos limitados y menor reconocimiento.
 
-4. Si el objetivo es obtener clusters bien separados, podría ser útil probar una combinación de ambos métodos, como usar el clustering jerárquico para determinar un número óptimo de clusters y luego aplicar K-Means con esa cantidad de clusters.
+K-Means ha logrado una segmentación clara de los datos con cada grupo bien definido.
 
-Estructura de los Clusters:
+Se observa que algunos puntos están en los bordes de las regiones de sus clusters, lo que indica cierta solapación entre los grupos.
 
-➢ K-Means asigna los puntos a 8 clusters basados en la minimización de la distancia a los centroides.
+2. Clustering Jerárquico
+El dendrograma muestra una estructura jerárquica de los datos, con tres grandes ramas, lo que coincide con los clusters de K-Means.
 
-➢ Clustering Jerárquico genera una estructura en forma de árbol (dendrograma), lo que permite visualizar cómo se agrupan los datos en diferentes niveles.
+Este método ofrece una representación más detallada de cómo se forman los grupos y permite explorar agrupaciones más pequeñas dentro de cada cluster.
 
-Separación y Superposición de los Clusters:
+La altura en el dendrograma indica la diferencia entre los datos antes de fusionarse, lo que ayuda a entender qué películas están más relacionadas.
 
-➢ En K-Means, algunos clusters parecen bien separados, mientras que otros están solapados debido a la proyección en 2D con PCA.
+3. Comparación entre K-Means y Clustering Jerárquico
+Ambos métodos han identificado los mismos tres clusters, lo que valida la segmentación realizada.
 
-➢ En Clustering Jerárquico, el dendrograma sugiere una estructura más flexible, en la que se podría experimentar con diferentes niveles de corte para obtener grupos más interpretables.
+K-Means es útil para una clasificación rápida y clara basada en centroides, mientras que el clustering jerárquico ofrece una visión más interpretativa y detallada de las relaciones entre las películas.
 
-Interpretabilidad:
+Si el objetivo es segmentar películas para estrategias de mercado, K-Means es la mejor opción por su rapidez y eficiencia.
 
-➢ K-Means es rápido y eficiente, pero no muestra relaciones jerárquicas entre los datos.
+Si el objetivo es analizar similitudes y jerarquías entre películas, el clustering jerárquico proporciona más información útil.
 
-➢ Clustering Jerárquico permite entender la relación entre los datos y ajustar dinámicamente el número de clusters en función de la altura del dendrograma.
+4. Aplicaciones Prácticas
+Este análisis puede ser útil para:
 
-Elección del Número de Clusters:
-
-➢ En K-Means, se determinó el número de clusters usando el método del codo, resultando en k = 8.
-
-➢ En Clustering Jerárquico, el dendrograma muestra que podría haber otras opciones, dependiendo de dónde se corte el árbol.
-
-Casos de Uso:
-
-➢ K-Means es ideal cuando el número de clusters es predefinido y se busca una clasificación rápida.
-
-➢ Clustering Jerárquico es mejor cuando se quiere explorar la estructura de los datos antes de decidir cuántos clusters usar.
-
+Plataformas de streaming: Para recomendar películas a los usuarios según su tipo de contenido preferido.
+Estudios de producción: Para analizar qué tipo de películas generan más ingresos o impacto.
+Investigación de mercado: Para identificar tendencias en la industria del cine.
 
 ### 1.5. Determine la calidad del agrupamiento hecho por cada algoritmo con el método de la silueta. Discuta los resultados.
 ```{r}
 library(cluster)   # Para clustering jerárquico y análisis de silueta
 library(factoextra) # Para visualización
 library(ggplot2)    # Para gráficos
+library(dplyr)      # Para manipulación de datos
+
+# Validar que movies_clustering_scaled solo tenga variables numéricas
+movies_clustering_scaled <- movies_clustering_scaled %>%
+  select_if(is.numeric) 
 
 # Evaluar la calidad del clustering usando el método de la silueta para K-Means
 silhouette_kmeans <- silhouette(kmeans_result$cluster, dist(movies_clustering_scaled))
 
+# Calcular la media del ancho de silueta para K-Means
+avg_sil_kmeans <- mean(silhouette_kmeans[, 3])
+
 # Visualizar la silueta para K-Means
 fviz_silhouette(silhouette_kmeans) +
-  labs(title = "Análisis de Silueta - K-Means")
+  labs(title = paste("Análisis de Silueta - K-Means (Media:", round(avg_sil_kmeans, 2), ")"))
 
 # Evaluar la calidad del clustering usando el método de la silueta para Clustering Jerárquico
-silhouette_hc <- silhouette(hc_clusters, dist(movies_clustering_scaled))
+hc_clusters_numeric <- as.numeric(as.character(hc_clusters))  # Asegurar que es numérico
+silhouette_hc <- silhouette(hc_clusters_numeric, dist(movies_clustering_scaled))
+
+# Calcular la media del ancho de silueta para Clustering Jerárquico
+avg_sil_hc <- mean(silhouette_hc[, 3])
 
 # Visualizar la silueta para Clustering Jerárquico
 fviz_silhouette(silhouette_hc) +
-  labs(title = "Análisis de Silueta - Clustering Jerárquico")
+  labs(title = paste("Análisis de Silueta - Clustering Jerárquico (Media:", round(avg_sil_hc, 2), ")"))
 
+# Conclusiones
+cat("\n--- Evaluación de la Calidad del Agrupamiento ---\n",
+    "1. Media del coeficiente de silueta para K-Means:", round(avg_sil_kmeans, 3), "\n",
+    "2. Media del coeficiente de silueta para Clustering Jerárquico:", round(avg_sil_hc, 3), "\n",
+    "3. Si el coeficiente de silueta está cerca de 1, los clusters están bien separados.\n",
+    "4. Si el coeficiente de silueta es cercano a 0, los clusters se solapan.\n",
+    "5. Si hay valores negativos, significa que algunos puntos pueden estar mal asignados.\n",
+    "6. Comparando los valores, el método con un coeficiente más alto es el que mejor segmenta los datos.")
 ```
-### Discusión sobre la Calidad del Agrupamiento utilizando el Método de la Silueta
+### Conclusiones sobre la Evaluación de la Calidad del Agrupamiento
 
-1. Evaluación de K-Means:
+1. K-Means (Media de Silueta: 0.51)
 
-➢ La distribución de los valores de silueta muestra una alta variabilidad en la cohesión de los clusters.
+Este valor sugiere que los clusters tienen una separación moderada.
 
-➢ El cluster 3 tiene el valor más alto de silueta (0.47), lo que indica que sus elementos están bien agrupados y separados de los demás.
+Se observa que algunos puntos presentan valores negativos, lo que indica que podrían estar asignados al cluster incorrecto.
 
-➢ En contraste, los clusters 2, 7 y 8 presentan valores de silueta bajos (0.10, 0.13 y 0.07, respectivamente), lo que sugiere una superposición significativa con otros clusters o una dispersión interna alta.
+Hay cierta superposición entre los clusters, lo que podría afectar la interpretabilidad del agrupamiento.
 
-➢ La diferencia en el tamaño de los clusters es notable, con algunos grupos pequeños como el cluster 3 (32 elementos) y otros mucho más grandes como los clusters 1 y 6, lo que podría ser un problema de balance en la partición.
+2. Clustering Jerárquico (Media de Silueta: 0.92)
 
+La media de silueta cercana a 1 indica una excelente separación entre los clusters.
 
-2. Evaluación del Clustering Jerárquico:
+Esto sugiere que el agrupamiento jerárquico segmenta los datos de manera mucho más efectiva que K-Means.
 
-➢ El análisis de silueta muestra que la gran mayoría de los datos han sido asignados al cluster 1 con una silueta promedio de 0.80, lo que indica una fuerte cohesión en este grupo.
+Prácticamente no hay solapamiento entre los clusters, lo que facilita la interpretación de los resultados.
 
-➢ Sin embargo, los demás clusters presentan tamaños extremadamente pequeños (5, 1, 1, 35, 7, 2 y 1 elementos), lo que sugiere que el clustering jerárquico no logró segmentar de manera equitativa la información.
+3. Comparación General
 
-➢ Los valores de silueta cercanos a 0 en varios clusters pequeños indican que estos puntos están mal asignados y podrían no representar verdaderos clusters, sino ruido o datos atípicos.
+Dado que el coeficiente de silueta del clustering jerárquico es mucho más alto que el de K-Means, se puede concluir que este método proporciona una mejor segmentación de los datos.
 
+En situaciones donde la calidad del clustering es prioritaria, el método jerárquico debería ser preferido.
 
-3. Comparación entre Ambos Métodos:
-
-➢ K-Means logra una mejor segmentación de los datos en múltiples clusters, aunque con cierta variabilidad en la calidad de la separación.
-
-➢ Clustering Jerárquico presenta un sesgo hacia un único gran cluster con la mayoría de los datos y varios clusters muy pequeños con baja significancia, lo que no es ideal para una buena segmentación.
-
-➢ El clustering jerárquico puede ser útil para analizar la estructura jerárquica de los datos, pero en este caso, no es el mejor método de agrupación.
-
-➢ La elección de K=8 en K-Means parece razonable, pero podría ser optimizada probando con un número diferente de clusters para mejorar la cohesión y separación de los grupos.
+Si la velocidad de ejecución es un factor crítico y se permiten ciertas imprecisiones en los límites de los clusters, K-Means sigue siendo una opción viable.
 
 ### 1.6. Interprete los grupos basado en el conocimiento que tiene de los datos. Recuerde investigar las medidas de tendencia central de las variables continuas y las tablas de frecuencia de las variables categóricas pertenecientes a cada grupo. Identifique hallazgos interesantes debido a las agrupaciones y describa para qué le podría servir.
 
 ```{r}
+# Cargar librerías necesarias
 library(dplyr)
 library(ggplot2)
 library(knitr)
 
-# 1. Medidas de Tendencia Central por Cluster (Media y Mediana)
-summary_clusters <- movies_clustering_scaled %>%
-  mutate(cluster = as.factor(kmeans_result$cluster)) %>%
+# 1. Asegurar que el dataset está correctamente estructurado con la asignación de clusters
+movies_clustered <- movies %>%
+  mutate(cluster = as.factor(kmeans_result$cluster)) 
+
+# 2. Normalizar los nombres de los países y manejar valores faltantes
+movies_clustered <- movies_clustered %>%
+  mutate(productionCountry = case_when(
+    is.na(productionCountry) | productionCountry == "" ~ "Desconocido",
+    grepl("United States", productionCountry) ~ "United States of America",
+    grepl("United Kingdom", productionCountry) ~ "United Kingdom",
+    TRUE ~ productionCountry
+  ))
+
+# 3. Medidas de Tendencia Central (Media y Mediana) por Cluster
+summary_clusters <- movies_clustered %>%
   group_by(cluster) %>%
-  summarise(across(everything(), list(Media = mean, Mediana = median), na.rm = TRUE))
+  summarise(across(where(is.numeric), list(Media = mean, Mediana = median), na.rm = TRUE))
 
 # Mostrar tabla resumen
 kable(summary_clusters, format = "html", caption = "Medidas de Tendencia Central por Cluster")
 
-# 2. Análisis de Frecuencia de Variables Categóricas
+# 4. Análisis de Frecuencia de Variables Categóricas
 categorical_vars <- c("genres", "originalLanguage", "productionCountry")
 
-# Función para calcular las 5 categorías más comunes por cluster
-top_categories_per_cluster <- function(var) {
-  movies %>%
-    mutate(cluster = as.factor(kmeans_result$cluster)) %>%
-    count(cluster, .data[[var]]) %>%
-    group_by(cluster) %>%
-    top_n(5, n) %>%
+# Función mejorada para calcular las 5 categorías más comunes por cluster
+top_categories_per_cluster <- function(df, var) {
+  df %>%
+    group_by(cluster, .data[[var]]) %>%
+    summarise(n = n(), .groups = "drop") %>%
     arrange(cluster, desc(n)) %>%
+    group_by(cluster) %>%
+    slice_max(n, n = 5) %>%
     ungroup()
 }
 
 # Generar tablas de frecuencia para cada variable categórica
-top_genres <- top_categories_per_cluster("genres")
-top_languages <- top_categories_per_cluster("originalLanguage")
-top_countries <- top_categories_per_cluster("productionCountry")
+top_genres <- top_categories_per_cluster(movies_clustered, "genres")
+top_languages <- top_categories_per_cluster(movies_clustered, "originalLanguage")
+top_countries <- top_categories_per_cluster(movies_clustered, "productionCountry")
 
 # Mostrar tablas de las principales categorías por cluster
 kable(top_genres, format = "html", caption = "Top 5 Géneros por Cluster")
 kable(top_languages, format = "html", caption = "Top 5 Idiomas Originales por Cluster")
 kable(top_countries, format = "html", caption = "Top 5 Países de Producción por Cluster")
 
-# 3. Visualización de Distribuciones por Cluster
+# 5. Agrupar países poco representados en una categoría "Otros"
+min_threshold <- 10  # Número mínimo de películas para ser mostrado individualmente
+top_countries <- top_countries %>%
+  mutate(productionCountry = ifelse(n < min_threshold, "Otros", productionCountry))
+
+# 6. Visualización de Distribuciones por Cluster
 
 # a. Boxplot de presupuesto por cluster
-ggplot(movies_clustering_scaled, aes(x = as.factor(kmeans_result$cluster), y = budget)) +
+ggplot(movies_clustered, aes(x = cluster, y = budget)) +
   geom_boxplot(fill = "skyblue", alpha = 0.7) +
-  labs(title = "Distribución del Presupuesto por Cluster", x = "Cluster", y = "Presupuesto (Normalizado)")
+  labs(title = "Distribución del Presupuesto por Cluster", x = "Cluster", y = "Presupuesto")
 
 # b. Boxplot de ingresos por cluster
-ggplot(movies_clustering_scaled, aes(x = as.factor(kmeans_result$cluster), y = revenue)) +
+ggplot(movies_clustered, aes(x = cluster, y = revenue)) +
   geom_boxplot(fill = "lightgreen", alpha = 0.7) +
-  labs(title = "Distribución de Ingresos por Cluster", x = "Cluster", y = "Ingresos (Normalizados)")
+  labs(title = "Distribución de Ingresos por Cluster", x = "Cluster", y = "Ingresos")
 
-# c. Distribución de géneros más comunes por cluster
+# c. Frecuencia de géneros más comunes por cluster
 ggplot(top_genres, aes(x = cluster, y = n, fill = genres)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Frecuencia de Géneros por Cluster", x = "Cluster", y = "Frecuencia") +
   theme_minimal()
 
-# d. Distribución de países de producción por cluster
+# d. Distribución de países de producción por cluster con ajustes
 ggplot(top_countries, aes(x = cluster, y = n, fill = productionCountry)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Frecuencia de Países de Producción por Cluster", x = "Cluster", y = "Frecuencia") +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.text = element_text(size = 8))  # Ajustar tamaño del texto en la leyenda
 
 # e. Popularidad promedio por cluster
-ggplot(movies_clustering_scaled, aes(x = as.factor(kmeans_result$cluster), y = popularity)) +
+ggplot(movies_clustered, aes(x = cluster, y = popularity)) +
   geom_boxplot(fill = "orange", alpha = 0.7) +
-  labs(title = "Distribución de Popularidad por Cluster", x = "Cluster", y = "Popularidad (Normalizada)")
-
+  labs(title = "Distribución de Popularidad por Cluster", x = "Cluster", y = "Popularidad")
 ```
+### Resultados del Análisis de Clustering
+
 1. Análisis de Medidas de Tendencia Central para Variables Continuas
+Se calcularon los valores promedio de las variables clave (presupuesto, ingresos, duración, popularidad, etc.) para cada cluster. A partir de estos datos, se identifican los siguientes hallazgos:
 
-Para cada cluster, se calculan los valores promedio de las siguientes variables:
+Cluster 1: Se agrupan películas con bajo presupuesto e ingresos moderados. Predominan películas de drama, comedia y horror, y la mayoría son producciones de Estados Unidos, Japón y Reino Unido.
 
-Presupuesto (budget)
-Ingresos (revenue)
-Duración (runtime)
-Popularidad (popularity)
-Calificación Promedio (voteAvg)
-Número de Votos (voteCount)
-Cantidad de Géneros (genresAmount)
-Cantidad de Productoras (productionCoAmount)
-Cantidad de Países de Producción (productionCountriesAmount)
-Cantidad de Actores (actorsAmount)
+Cluster 2: Contiene películas con presupuestos significativamente más altos y mayores ingresos. Se observa una mayor proporción de películas comerciales con mayor inversión, incluyendo blockbusters y grandes producciones de Hollywood.
 
-Se identifican los siguientes hallazgos:
-
-Cluster 3 y Cluster 8 tienen las películas con mayores presupuestos y recaudaciones, lo que sugiere que estos grupos están formados por grandes producciones de Hollywood con alta inversión.
-
-El Cluster 7 tiene la menor calificación promedio y menor número de votos, lo que sugiere que incluye películas menos populares o mal recibidas.
-
-Los Clusters 2 y 6 contienen películas con alta cantidad de países de producción, lo que indica que incluyen coproducciones internacionales.
-
-El Cluster 5 presenta un bajo promedio en la duración de las películas, indicando que podría contener cortometrajes o películas de duración reducida.
-
-El Cluster 1 agrupa películas con presupuestos bajos y bajos ingresos, lo que sugiere que se compone principalmente de producciones independientes o de bajo impacto comercial.
+Cluster 3: Incluye películas con presupuestos muy bajos y bajos ingresos. Es posible que estas sean películas independientes o de nicho, con una menor audiencia y distribución limitada.
 
 2. Análisis de Frecuencia de Variables Categóricas
+Se evaluaron las distribuciones de género, idioma original y país de producción:
 
-Se examinan las distribuciones de:
+Cluster 1: Principalmente películas en inglés, con presencia de drama, comedia y terror. Este grupo representa un segmento de producciones convencionales con moderado éxito comercial.
 
-Géneros (genres)
-Idioma Original (originalLanguage)
-País de Producción (productionCountry)
+Cluster 2: Se encuentran las películas con mayor inversión y recaudación, destacándose las películas de acción, aventura y ciencia ficción. Estas películas suelen ser grandes producciones de Hollywood con alcance internacional.
 
-Hallazgos Clave:
+Cluster 3: Contiene películas en diversos idiomas y producciones de múltiples países. Se observa una mayor presencia de películas de géneros menos convencionales, lo que sugiere que pueden ser independientes o experimentales.
 
-Cluster 3 tiene una alta presencia de películas de acción y ciencia ficción, lo que confirma que este grupo contiene producciones de alto presupuesto.
+3. Comparación de Distribuciones por Cluster
 
-Cluster 5 está dominado por películas de animación y documentales, lo que explica su menor duración.
+### Los boxplots muestran diferencias clave en la distribución de presupuesto, ingresos y popularidad:
 
-Cluster 6 tiene una gran cantidad de películas de terror y suspenso, lo que sugiere que este género forma un grupo bien diferenciado.
+Presupuesto e Ingresos: El Cluster 2 tiene la mayor inversión y recaudación, mientras que el Cluster 3 agrupa películas con bajo presupuesto y menor éxito comercial.
 
-Cluster 2 tiene películas en múltiples idiomas, alineándose con su alta cantidad de países de producción.
+Popularidad: Se observa que el Cluster 2 tiene películas con una popularidad más alta en promedio, lo que coincide con su mayor inversión publicitaria y distribución global.
 
-3. Utilidad del Clustering
+4. Aplicaciones del Clustering
 
-El agrupamiento obtenido puede ser útil en diversas aplicaciones:
+El agrupamiento de películas puede ser útil para:
 
-Segmentación de mercado: Ayuda a plataformas de streaming o productoras a entender qué tipos de películas se agrupan según características clave.
+Segmentación de mercado: Plataformas de streaming pueden identificar grupos de películas similares para mejorar sus recomendaciones.
 
-Recomendaciones personalizadas: Permite mejorar los algoritmos de recomendación basados en clusters similares de películas.
+Optimización de inversiones: Los estudios de cine pueden analizar las características de los clusters más exitosos para decidir en qué tipo de producciones invertir.
 
-Optimización de inversión: Ayuda a analizar qué características tienen las películas más exitosas y orientar futuras inversiones.
+Estrategias de distribución: Se pueden desarrollar estrategias de marketing enfocadas en los segmentos de mayor rentabilidad y alcance global.
 
-Análisis de tendencias: Se pueden identificar patrones en la industria cinematográfica, como qué géneros tienden a recibir más inversión o qué tipos de películas tienen mayor éxito globalmente.
+Análisis de tendencias: Permite identificar patrones en la industria, como qué géneros reciben mayor inversión y cuáles generan mayores ingresos.
 
 
