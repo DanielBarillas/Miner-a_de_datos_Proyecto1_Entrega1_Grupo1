@@ -41,7 +41,10 @@ library(nortest)
 movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
 ```
 
-## Data Clenaing PCA
+## PCA
+
+
+### Data Clenaing PCA
 
 Vamos a mostrar primero el tipo de datos que tenemos 
 
@@ -283,6 +286,178 @@ Lo que hace esta prueba es simular eigenvalores por los PCA definidos, y nos arr
 paran(movie_data_selected[,1:ncol(movie_data_selected)], graph=TRUE)
 
 ```
-#### Seleccionar Componentes
+#### Analisis Grafico
 
-Lo primero que vamos a hacer es utilizar la regla del Kaiser, esta regla nos dira 
+Aqui lo podemos ver es lo que hemos estado hablando, vemos que el punto de encuentro entre ambas rectas es en 14, lo que nos indica que usemos los 14 componentes que hemos elegido. Esto se puede ver en la grafica azul que son los valores aleatorios asignados por la prueba, y los propios que son el rojo. COmo podemos ver hasta el componente 14 generan sus valores propios mas de lo que se esperaria si pusieramos los datos al azar. Pero tambien tenemos un problema, y es que tenemos varios de esa seleccion que hay muy poca diferencia entre hacerlo al azar o no. Esto nos puede decir que existen variables que provocan ruido en nuestra matriz de correlacion. Lo mejor seria a estas variables quitarlas y volver a hacer una analisis de PCA. 
+
+Por esto mismo seleccionaremos aquellas variables que tienen mayor correlacion con nuestras objetivo. Y debido a esto las que no tienen mayor correlacion son las siguientes
+
+
+
+
+## PCA segunda vez
+
+- Descartamos las columnas genero solo dejaremos aquellos generos mayormente correlacionados.Solo dejaremos los generos que mas correlacion tienen, accion, aventura y drama
+```{r}
+movie_data_selected <- movie_data_selected[, c("month", "budget", "homePage", "revenue", "runtime", "video", "originalLanguage", "popularity", "voteAvg", "voteCount", "genresAmount", "productionCoAmount", "productionCountriesAmount", "actorsAmount", "castWomenAmount", "castMenAmount", "Crime","Comedy", "Action", "Adventure", "Drama")]
+
+```
+
+
+### Matriz Correlacion
+
+Deternimante
+```{r}
+rcor<-cor(movie_data_selected[,2:ncol(movie_data_selected)],use = "pairwise.complete.obs")
+det_rcor <- det(rcor)
+print(det_rcor)
+```
+Es cercano a 0 nuestro valor 0.0214 entonces realizamos PCA
+
+
+Esta seria nuestra matriz
+
+```{r}
+library(corrplot)
+
+
+matriz <- cor(movie_data_selected[,1:ncol(movie_data_selected)], use = "pairwise.complete.obs")
+
+
+corrplot(matriz, method = "color", 
+         tl.cex = 0.6,
+         tl.srt = 90, 
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         cl.cex = 0.7)
+
+```
+#### Analisis Grafico
+
+Como podemos ver es mucho mas limpia y evidente en donde estamos tenindo nuestras correlaciones , de hecho vizualizamos ahora cosas que no haciamos como que los generos que mas votos reciben de parte del publico es el de Drama. 
+
+
+
+
+### KMO
+
+
+```{r}
+KMO(as.matrix(movie_data_selected[,1:ncol(movie_data_selected)]))
+```
+
+Esta vez algo distinto paso y es que el KMO nos arrojo de 0.62 esto es mayor a 0.5 , lo cual indica que para un analisis factorial es aceptable, y de hecho puedo tener buenos resultados usando PCA
+
+### Esfericidad de Barlett
+
+
+```{r}
+library(psych)
+
+bartlett_test <- cortest.bartlett(cor(movie_data_selected, use = "pairwise.complete.obs"), 
+                                  n = nrow(movie_data_selected))
+
+# Esto sirve para mostrar que si es mas pequeño que 0.005
+formatC(bartlett_test$p.value, format = "e", digits = 10)
+
+```
+
+El test de esfericidad de Barlett tambien lo paso, siendo casi 0. Lo cual nos indica que si hay correlacion fuera de la identidad. 
+
+
+### PCA 
+
+Ahora si hacemos PCA, primero normalizamos
+
+
+```{r}
+compPrinc<-prcomp(movie_data_selected[,1:ncol(movie_data_selected)], scale = T)
+summary(compPrinc)
+
+
+
+```
+
+Ahora tenemos 21 PCA, de hecho podemos ver que con los primeros 9 explica el 64% de los datos. Lo que mejoro un poco el PCA anterior. Especificamente un 20%
+
+### Regla de Kaiser
+```{r}
+valores_propios<-compPrinc$sdev^2
+valores_propios
+```
+
+La diferencia de la vez anterior es que ahora con la regla de kaiser tenemos que elegir los primeros 9 PCA. Lo que aun mas reduce la dimensionalidad. 
+
+
+
+```{r}
+library(ggplot2)
+
+fviz_eig(compPrinc, addlabels = TRUE, labelsize = 3, ylim = c(0, 15), ncp = 21) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
+
+```
+#### Analisis Grafico
+
+A diferencia de la anterior podemos ver que que se estabiliza en el 7 nuestro codo. Lo cual indicaria que tendriamos que elegir entre 7 y 9 PCA. 
+
+### Prueba de Paralelismo
+
+
+
+```{r}
+paran(movie_data_selected[,1:ncol(movie_data_selected)], graph=TRUE)
+
+```
+#### Analisis Grafico
+
+Ahora podemos ver que si a los 9 PCA tenemos mejor rendimiento a que usaramos datos al azar. Viendo que despues de el punto de 9 componentes principales, podemos ver que se empieza a distanciar los valores aleatorios de los valores reales . Por lo que elegiremos los primeros 9 componentes. 
+
+
+Ahora si con esto vamos a realizar la obtencion de los PCA, pero antes mostraremos como se correlacion entre si cada componente. 
+
+### Carga Factorial Interpretativa
+
+Aqui se va a realizar un grafico de 2 dimensiones , y el grafico explicara como es la calidad de la representacion de los componentes
+```{r}
+fviz_pca_var(compPrinc, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE 
+)
+```
+#### Analisis Grafico
+
+Viendo el grafico podemos ver que quienes tienen mayor correlacion entre si son voteAVg con runtime, budget con revenue, voteCount con revenue, homepage con revenue, y las que estan inversamente correlacionadas son castWomen y castMen con revenue, otihinsl language con budget y revenue,
+
+Otra cosa que se puede ver es uqe la mayoria no esta tan correlacionado con el PCA 1 y el PCA2, de hecho entre los 2 solo explican el 22% de la varianza de los datos. Por lo que realmente no estamos viendo una diferencia entre todos. Lo que podemos hacer es realizar una matriz de correlacion con estos datos y ver como se correlacionan. 
+
+```{r}
+var<-get_pca_var(compPrinc)
+corrplot(var$cos2, is.corr = F)
+```
+
+#### Analisis Grafico
+
+Al final de todos dijimos que solo usariamos los primeros 9 PCA, y podemos ver que  la mayoria de los datos esan mejor representadas en ellos. De hecho podemos ver que son los primeros 4 en donde al compararlo con las variables, describen de manera correcta los datos. Pero existe uno que ese el 9 que esta estrechamente correlacionado con el mes y con la popularidad.Aunque aquellos que son 10, 11, 12 estan mas relacionados con la homepage y la popularidad . Pero esto no nos servira para nuestra seleccion. 
+
+
+### Interpretación de las Componentes
+
+- El componente principal PC1, es un indicador de exito en base a la critica. Debido a que valores altos en la critica, provocan mayores ingresos pero tambien es necesario una mayor inversion.
+
+- El componente principal PC2, esta vinculado con la duracion de los generos. Pues a mayor duracion suelen estar relacionados con los generos de Avendura y Drama. 
+
+- El componente principal PC3, esta vinculado con el genero con mayor participacion de hombres, pues estos generos con mayor participan de hombres son los de crimen y accion. 
+
+- El componente principal PC4, es un indicador de mayor participacion de hombres en rodajes, ya que a mayor cantidad de productoras, tambien mayor cantidad de hombres en estas. 
+
+- El componente principal PC5, es un indicador de impacto del reparto, debido a que mayor cantidad de actores representa tambien una mejor valoracion de parte de la critica y el publico. 
+
+- El componente principal PC6, es un indicador de participacion de mujeres en rodajes, ya que como se muestra en la matriz mientras mas productoras mayor sera la cantidad de actrices, 
+
+- El componente principal PC7, esta vinculado en generos que mas participan las mujeres, y aqui estan los de crimen, debido a que estos tienen una gran correlacion con la cantidad de actrices en el reparto.
+
+- El componente principal PC8, esta vinculado con la popularidad de los generos, siendo el de comedia el que mas popularidad tiene entre los generos vistos, debido a que mientras mayor sea la popularidad hay mas peliculas de este genero y tambien en el dataset de la cantidad de generos el que mas veces se repite es el de comedia.
+
+- El componente principal PC9, esta vinculado con la popularidad de la pelicula en el mes que fue lanzada, debido a que mayor popularidad tambien tiende a tener mayor correlacion con el mes que fue lanzado. 
