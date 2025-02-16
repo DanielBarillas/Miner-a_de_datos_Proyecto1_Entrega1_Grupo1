@@ -1371,7 +1371,7 @@ for (s in support_vals) {
 
 
 ```{r}
-# Mostrar los mejores parámetros encontrados
+# Mostrar los mejores parámetfdros encontrados
 cat("\n========= RESULTADO FINAL =========\n")
 cat("Mejor soporte:", best_params[1], "\n")
 cat("Mejor confianza:", best_params[2], "\n")
@@ -1529,7 +1529,8 @@ for (s in support_vals) {
         reglas <- apriori(data = trans,
                           parameter = list(support = s,
                                            confidence = c,
-                                           target = "rules"))
+                                           target = "rules",
+                                           minlen = 2))
       )
     )
     
@@ -1565,3 +1566,201 @@ print(rules_count)
 
 
 ```
+
+
+
+Por esto al final lo que vamos a usar es es el algoritmo de Apriori con 0.8 y 0.5
+
+
+
+### Apriori final 
+
+Realizamos el ultimo apriori con lo definido.
+```{r}
+# Filtrar las columnas que terminan en "_cat" y agregar 'genres'
+cat_columns <- grep("_cat$", colnames(movies), value = TRUE)
+
+# Incluir 'genres' en las columnas seleccionadas
+cat_columns <- c(cat_columns, "genres",'originalLanguage', 'month_name')
+
+# No quiero que sea igual a estas columnas
+exclude_columns <- c("id_cat", "voteCount_cat", "productionCoAmount_cat", "productionCountriesAmount_cat", "genresAmount_cat")
+cat_columns_filtered <- cat_columns[!(cat_columns %in% exclude_columns)]
+
+
+# Seleccionar las columnas deseadas
+movie_rest <- movies[, cat_columns]
+
+
+library(arules)
+
+# Convertir a transacciones
+trans <- as(movie_rest, "transactions")
+
+# Aplicar apriori con soporte y confianza fijos
+reglas <- apriori(data = trans, 
+                  parameter = list(support = 0.8, 
+                                   confidence = 0.5, 
+                                   target = "rules",
+                                   minlen = 2))
+
+# Cantidad de reglas generadas
+num_reglas <- length(reglas)
+
+# Promedio del lift
+avg_lift <- if (num_reglas > 0) mean(quality(reglas)$lift) else NA
+
+# Resultados
+num_reglas
+avg_lift
+
+```
+```{r}
+cat("\n========= RESULTADO FINAL =========\n")
+cat("Numero de reglas:", num_reglas, "\n")
+cat("Mejor promedio de Lift:",avg_lift, "\n")
+```
+
+Como parte final haremos un analisis de las reglas de asociacion generadas.
+```{r}
+inspect(head(reglas, 20))
+```
+
+
+
+
+#### Analisis reglas de Asociacion
+
+Las 5 reglas mas importantes que se encontraron son las siguientes:
+
+1. El 91% de la popularidad baja tambien genero ingresos bajos
+2. El 93% de los votos bajo generaron tambien ingresos bajos. 
+3. El 90% de las peliculas con bajo presupuesto tambien tienen bajos ingresos.
+
+Ahora analizaremos en aquellas que nos interesan que son las relacionadas a ingresos
+
+
+```{r}
+reglas_filtradas <- subset(reglas, rhs %in% "revenue_cat=Bajo")
+inspect(head(reglas_filtradas, 10))
+```
+
+4. El 99% de las peliculas con popularidad baja, y paises en produccion que son bajos tambien generaron ingresos bajos. 
+
+5. El 92% de las peliculas con popularidad baja, votos bajos, y cantidad de actores bajos es de hecho genera pocos ingresos. Con confianza de 0.99 y soporte 0.90
+
+
+
+
+# Resumen de Hallazgos del Agrupamiento y Recomendaciones para CineVision Studios
+
+## Segmentación de Películas Identificadas con Clustering
+
+El análisis de clustering permitió segmentar las películas en tres grandes grupos, con características bien diferenciadas en términos de presupuesto, ingresos, popularidad y enfoque de producción.
+
+### Cluster 1: Producciones de Bajo Presupuesto
+
+- Películas con presupuestos limitados e ingresos bajos.
+- Predominan géneros como drama, comedia y horror.
+- Principalmente de EE.UU., Japón y Reino Unido.
+- Popularidad y número de votos limitados.
+
+### Cluster 2: Producciones Comerciales y Blockbusters
+
+- Películas de mayor inversión y recaudación.
+- Géneros predominantes: acción, aventura y ciencia ficción.
+- Alta presencia de estudios de Hollywood.
+- Alta popularidad y número de votos.
+
+### Cluster 3: Películas Independientes y Experimentales
+
+- Producciones de bajo presupuesto con menor recaudación.
+- Mayor diversidad de idiomas y países de producción.
+- Enfoque artístico y experimental.
+- Menor presencia en el mercado general.
+
+
+## Segmentación de Películas Identificadas con PCA
+
+En este se puedieron observar lo siguiente al reducir la dimensionalidad
+
+### Exito en base a la critica
+
+El exito de una pelicula esta estrechamente vinculado con su critica que le dieron las personas. Cabe aclarar que para esto ocurra se necesita una mayor inversion
+
+### Participacion de Hombres y Mujeres
+
+La participacion de hombres y mujeres esta dada por una clara diferencia, muchos hombres participan en producciones de accion y aventura y muchas mujeres de drama y crimen. Y se ve una clara tendencia a que muchas productoras trabajan con hombres. Pero no existe una correlacion directa entre el exito de la pelicula y la cantidad de actores mujeres y hombres.
+
+### Generos populares
+
+Los generos mas populares son los de Accion y Comedia, de hecho la mayoria de peliculas suelen tener una mayor ganancia pero tambien necesitar mayor inversion en estos generos.
+
+
+### Mes de Lanzamiento
+
+Se ve una correlacion en el mes que se lanzo y la popularidad de la pelicula, posiblemente porque no tuvo que competir con otras o porque fue lanza en una temporada muy esperada por las personas
+
+
+## Segmentación de Películas Identificadas con Apriori
+
+### Peliculas con baja recaudacion
+
+Se puede ver que las peliculas que tienen una baja recaudacion tambien tuvieron un bajo presupuesto, una baja valoracion y una baja popularidad en el publico. 
+
+
+## Recomendaciones Estratégicas para CineVision Studios
+
+
+### Expansión de Producciones Comerciales y Blockbusters
+
+- Aumentar inversión en géneros rentables.
+- Optimizar marketing y distribución global.
+- Fomentar alianzas con productoras internacionales.
+
+### Impulso al Segmento Independiente y de Nicho
+
+- Explorar mercados emergentes de cine independiente.
+- Potenciar distribución digital en plataformas de streaming.
+- Participar en festivales de cine internacionales.
+
+### Estrategias para Películas de Bajo Presupuesto
+
+- Enfocarse en géneros rentables como terror y comedia.
+- Utilizar marketing digital y redes sociales.
+- Explorar coproducciones internacionales.
+
+### Aplicaciones del Clustering en la Industria Cinematográfica
+
+- **Optimización de estrategias de inversión y producción**: Identificación de géneros y tendencias emergentes.
+- **Mejoras en recomendaciones de streaming**: Personalización de contenido y segmentación de audiencia.
+- **Análisis de tendencias y competitividad**: Evaluación de patrones de éxito en el mercado cinematográfico.
+
+### Aumentar la produccion de generos
+
+- Crear mas peliculas de genero de comedia  y Accion
+- Mayor inversion a las productoras que se enfocan en este nicho. 
+
+
+### Mejorar calidad y produccion
+
+- Mejorar la calidad de los rodajes
+- Realizar una mayor inversion en produccion
+- Invertir en pulir guiones y tramas de sus peliculas.
+
+### Lanzamiento de peliculas
+- Lanzar las peliculas en meses donde no existan tantos bluckbusters.
+- Crear una calendarizacion de los estrenos que desean realizar.
+
+### Mejorar la participacion de los actores
+- Si bien no influye en las ganancias mejora las criticas de una pelicula.
+- Agregar mas mujeres en peliculas de diferente nicho.
+- Agregar mas hombres en peliculas fuera de su nicho. 
+
+## Conclusión Final
+
+El análisis de clustering ha proporcionado información valiosa sobre la segmentación del mercado cinematográfico, permitiendo a CineVision Studios identificar oportunidades clave para el desarrollo de nuevas producciones y la optimización de su estrategia de distribución.
+Las recomendaciones estratégicas presentadas permitirán: Maximizar la rentabilidad de los blockbusters a través de inversiones estratégicas y marketing global. Expandir la presencia del cine independiente, aprovechando plataformas de streaming y festivales de cine. Optimizar la producción y distribución de películas de bajo presupuesto, maximizando su impacto con estrategias de marketing digital.
+Aplicando estas estrategias, CineVision Studios podrá consolidarse como un estudio líder en la industria cinematográfica, con una oferta de contenido diversificada y alineada con las tendencias del mercado.
+
+
