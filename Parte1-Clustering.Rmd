@@ -1136,3 +1136,432 @@ Al final de todos dijimos que solo usariamos los primeros 9 PCA, y podemos ver q
 - El componente principal PC8, esta vinculado con la popularidad de los generos, siendo el de comedia el que mas popularidad tiene entre los generos vistos, debido a que mientras mayor sea la popularidad hay mas peliculas de este genero y tambien en el dataset de la cantidad de generos el que mas veces se repite es el de comedia.
 
 - El componente principal PC9, esta vinculado con la popularidad de la pelicula en el mes que fue lanzada, debido a que mayor popularidad tambien tiende a tener mayor correlacion con el mes que fue lanzado. 
+
+
+
+# Apriori
+
+Lo primero que haremos es descargar todo, y filtrar los datos que son nan
+
+```{r}
+if(! "arules" %in% installed.packages()) install.packages("arules", depend = TRUE)
+if(! "arulesViz" %in% installed.packages()) install.packages("arulesViz", depend = TRUE)
+library(arules)
+library(dplyr)
+library(arulesViz)
+movies <- read.csv("movies.csv", stringsAsFactors = FALSE)
+```
+
+## Data Cleaning
+
+Primero hacemos una limpieza.Verificando cuales datos son nulos. 
+
+```{r}
+
+null_counts <- colSums(is.na(movies))
+
+# Mostrar los resultados
+null_counts
+```
+Quitamos los que son nulos de aqui
+
+- Primero homePage, video 
+```{r}
+movies$homePage <- ifelse(is.na(movies$homePage), "No", "Si")
+
+
+
+movies$video <- ifelse(is.na(movies$video), "No_Encontrado", 
+                       ifelse(movies$video == TRUE, "Si", 
+                              ifelse(movies$video == FALSE, "No", "No_Encontrado")))
+
+
+
+movies$productionCompanyCountry <- ifelse(is.na(movies$productionCompanyCountry), "No_Encontrado", 
+                                           movies$productionCompanyCountry)
+
+
+```
+
+
+- Ahora podemos ver que no hay valores nulos
+
+```{r}
+
+null_counts <- colSums(is.na(movies))
+
+# Mostrar los resultados
+null_counts
+```
+
+
+
+- Vamos a convertir los datos numericos a caetgoricos. 
+
+```{r}
+
+convert_to_category <- function(movies, cols, num_bins = 6) {
+  for (col in cols) {
+
+    if (col %in% names(movies) && is.numeric(movies[[col]])) {
+
+      # Calcular cortes de los cuantiles más detallados o con un número fijo de bins
+      breaks <- seq(min(movies[[col]], na.rm = TRUE), max(movies[[col]], na.rm = TRUE), length.out = num_bins + 1)
+      
+      # Eliminar duplicados de los valores de 'breaks' para evitar intervalos repetidos
+      breaks <- unique(breaks)
+      
+      # Verificar cuántos intervalos generamos
+      num_intervals <- length(breaks) - 1
+      
+      # Si hay menos de 2 intervalos, asignar un valor categórico único
+      if (num_intervals < 2) {
+        movies_clean[[paste0(col, "_cat")]] <- "Unico valor"
+      } else {
+        # Definir etiquetas según el número de intervalos
+        labels <- c("Bajo", "Medio-Bajo", "Medio-Alto", "Alto", "Muy Alto", "Extremo")[1:num_intervals]
+        
+        # Asegurarse de que el número de intervalos coincida con el número de etiquetas
+        movies[[paste0(col, "_cat")]] <- cut(movies[[col]], 
+                                                    breaks = breaks, 
+                                                    labels = labels, 
+                                                    include.lowest = TRUE)
+      }
+    }
+  }
+  return(movies)
+}
+
+# Llamada a la función con un mayor número de bins (por ejemplo 6)
+numeric_cols <- names(movies)[sapply(movies, is.numeric)]
+movies <- convert_to_category(movies, numeric_cols, num_bins = 6)
+
+
+
+
+```
+
+
+- Ahora vamos a obtener el primer genero , y el mes 
+
+```{r}
+
+# Obtenemos el genero
+
+movies$genres <- sapply(strsplit(movies$genres, "\\|"), `[`, 1)
+
+
+# Aseguramos que releaseDate esté en formato de fecha
+movies$releaseDate <- as.Date(movies$releaseDate)
+movies$month_name <- format(movies$releaseDate, "%B")
+
+
+
+```
+
+
+Ahora vamos a seleccionar las columnas especificadas. 
+```{r}
+# Filtrar las columnas que terminan en "_cat" y agregar 'genres'
+cat_columns <- grep("_cat$", colnames(movies), value = TRUE)
+
+# Incluir 'genres' en las columnas seleccionadas
+cat_columns <- c(cat_columns, "genres",'originalLanguage','productionCompany', 'productionCountry', 'productionCompanyCountry', 'month_name')
+
+cat_columns <- cat_columns[cat_columns != "id_cat"]
+# Seleccionar las columnas deseadas
+movie_rest <- movies[, cat_columns]
+
+
+
+```
+
+
+Ahora estos datos los vamos a pasar por transacciones
+
+```{r}
+
+dim(movie_rest)
+
+
+#Convirtiendolas en transacciones
+trans <- as(movie_rest,"transactions")
+
+#Crea variables dummy de las categorías
+summary(trans)
+itemLabels(trans)
+as(trans[1:2, 1:10], "matrix")
+
+```
+
+
+Como podemos ver este es el numero de transacciones realizadas. de hecho lo que vamos hacer ahora es aplicar a priori. Poniendo como soporte 0.3 minlen de 2 y maxlen de 4
+
+
+```{r}
+reglas<-apriori(trans, parameter = list(support = 0.3,
+                                        target = "frequent", 
+                                        minlen=2, maxlen=4))
+
+summary(reglas)
+```
+Se puede ver que se contaron  761 items al colocar 0.3  de soporte y 2 como valor minimo.
+
+
+
+Tambien podemos mostrar los primeros 20 itemsets creados
+
+```{r}
+top_20_itemsets <- sort(reglas, by = "support", decreasing = TRUE)[1:20]
+inspect(top_20_itemsets)
+```
+
+
+Lo que tocaria es tratar de optimizar hasta encontrar el numero de reglas optimo. Para esto haremos lo siguiente
+
+
+### Reglas
+
+Ahora vamos a obtener las reglas apriori creadas , para ello usaremos confianza y soporte de manera automatica hasta encontrar el mejor
+
+```{r}
+
+library(arules)
+
+# Valores iniciales
+support_vals <- seq(0.4, 0.9, by=0.1)  # Rango de soporte
+confidence_vals <- seq(0.5, 0.95, by=0.1)  # Rango de confianza
+
+best_rules <- NULL
+best_lift <- 0  
+best_params <- c(0, 0)  
+rules_count <- list() 
+
+for (s in support_vals) {
+  for (c in confidence_vals) {
+    
+    # Capturar la salida del algoritmo para evitar que se imprima
+    suppressWarnings(
+      capture.output(
+        reglas <- apriori(data = trans,
+                          parameter = list(support = s,
+                                           confidence = c,
+                                           target = "rules"))
+      )
+    )
+    
+    rules_count[[paste(s, c, sep = "_")]] <- length(reglas)
+    
+    if (length(reglas) == 0) next
+    
+    # Calcular el promedio del Lift
+    avg_lift <- mean(quality(reglas)$lift)
+    
+    if (avg_lift > best_lift) {
+      best_lift <- avg_lift
+      best_rules <- reglas
+      best_params <- c(s, c)
+    }
+  }
+}
+
+
+
+``` 
+
+
+```{r}
+# Mostrar los mejores parámetros encontrados
+cat("\n========= RESULTADO FINAL =========\n")
+cat("Mejor soporte:", best_params[1], "\n")
+cat("Mejor confianza:", best_params[2], "\n")
+cat("Mejor promedio de Lift:", best_lift, "\n")
+cat("Total de reglas generadas:", length(best_rules), "\n")
+
+# Mostrar cuántas reglas se generaron por cada combinación de soporte y confianza
+cat("\n===== Cantidad de reglas por configuración =====\n")
+print(rules_count)
+
+
+
+```
+
+
+Como podemos ver en donde mejor se desempeño apriori fue en un soporte de 0.4 y confianza de 0.5 con 8235 reglas generadas. El problema es que son muchas reglas, lo que queremos es reducir la dimensionalidad. Asi que quitaremos variables. 
+```{r}
+# Filtrar las columnas que terminan en "_cat" y agregar 'genres'
+cat_columns <- grep("_cat$", colnames(movies), value = TRUE)
+
+# Incluir 'genres' en las columnas seleccionadas
+cat_columns <- c(cat_columns, "genres",'originalLanguage', 'month_name')
+
+cat_columns <- cat_columns[cat_columns != "id_cat"]
+# Seleccionar las columnas deseadas
+movie_rest <- movies[, cat_columns]
+
+
+```
+
+
+Volvemos a hacer lo mismo de Apriori
+```{r}
+
+dim(movie_rest)
+
+
+#Convirtiendolas en transacciones
+trans <- as(movie_rest,"transactions")
+
+#Crea variables dummy de las categorías
+summary(trans)
+itemLabels(trans)
+as(trans[1:2, 1:10], "matrix")
+
+
+library(arules)
+
+# Valores iniciales
+support_vals <- seq(0.4, 0.9, by=0.1)  # Rango de soporte
+confidence_vals <- seq(0.5, 0.95, by=0.1)  # Rango de confianza
+
+best_rules <- NULL
+best_lift <- 0  
+best_params <- c(0, 0)  
+rules_count <- list() 
+
+for (s in support_vals) {
+  for (c in confidence_vals) {
+    
+    # Capturar la salida del algoritmo para evitar que se imprima
+    suppressWarnings(
+      capture.output(
+        reglas <- apriori(data = trans,
+                          parameter = list(support = s,
+                                           confidence = c,
+                                           target = "rules"))
+      )
+    )
+    
+    rules_count[[paste(s, c, sep = "_")]] <- length(reglas)
+    
+    if (length(reglas) == 0) next
+    
+    # Calcular el promedio del Lift
+    avg_lift <- mean(quality(reglas)$lift)
+    
+    if (avg_lift > best_lift) {
+      best_lift <- avg_lift
+      best_rules <- reglas
+      best_params <- c(s, c)
+    }
+  }
+}
+
+
+```
+```{r}
+# Mostrar los mejores parámetros encontrados
+cat("\n========= RESULTADO FINAL =========\n")
+cat("Mejor soporte:", best_params[1], "\n")
+cat("Mejor confianza:", best_params[2], "\n")
+cat("Mejor promedio de Lift:", best_lift, "\n")
+cat("Total de reglas generadas:", length(best_rules), "\n")
+
+# Mostrar cuántas reglas se generaron por cada combinación de soporte y confianza
+cat("\n===== Cantidad de reglas por configuración =====\n")
+print(rules_count)
+
+
+
+```
+
+
+Mejoro un poco asi que aplicaremos una vez mas el eliminar 
+
+
+```{r}
+# Filtrar las columnas que terminan en "_cat" y agregar 'genres'
+cat_columns <- grep("_cat$", colnames(movies), value = TRUE)
+
+# Incluir 'genres' en las columnas seleccionadas
+cat_columns <- c(cat_columns, "genres",'originalLanguage', 'month_name')
+
+# No quiero que sea igual a estas columnas
+exclude_columns <- c("id_cat", "voteCount_cat", "productionCoAmount_cat", "productionCountriesAmount_cat", "genresAmount_cat")
+cat_columns_filtered <- cat_columns[!(cat_columns %in% exclude_columns)]
+
+
+# Seleccionar las columnas deseadas
+movie_rest <- movies[, cat_columns]
+```
+
+```{r}
+
+dim(movie_rest)
+
+
+#Convirtiendolas en transacciones
+trans <- as(movie_rest,"transactions")
+
+#Crea variables dummy de las categorías
+summary(trans)
+itemLabels(trans)
+as(trans[1:2, 1:10], "matrix")
+
+
+library(arules)
+
+# Valores iniciales
+support_vals <- seq(0.4, 0.9, by=0.1)  # Rango de soporte
+confidence_vals <- seq(0.5, 0.95, by=0.1)  # Rango de confianza
+
+best_rules <- NULL
+best_lift <- 0  
+best_params <- c(0, 0)  
+rules_count <- list() 
+
+for (s in support_vals) {
+  for (c in confidence_vals) {
+    
+    # Capturar la salida del algoritmo para evitar que se imprima
+    suppressWarnings(
+      capture.output(
+        reglas <- apriori(data = trans,
+                          parameter = list(support = s,
+                                           confidence = c,
+                                           target = "rules"))
+      )
+    )
+    
+    rules_count[[paste(s, c, sep = "_")]] <- length(reglas)
+    
+    if (length(reglas) == 0) next
+    
+    # Calcular el promedio del Lift
+    avg_lift <- mean(quality(reglas)$lift)
+    
+    if (avg_lift > best_lift) {
+      best_lift <- avg_lift
+      best_rules <- reglas
+      best_params <- c(s, c)
+    }
+  }
+}
+
+
+```
+```{r}
+# Mostrar los mejores parámetros encontrados
+cat("\n========= RESULTADO FINAL =========\n")
+cat("Mejor soporte:", best_params[1], "\n")
+cat("Mejor confianza:", best_params[2], "\n")
+cat("Mejor promedio de Lift:", best_lift, "\n")
+cat("Total de reglas generadas:", length(best_rules), "\n")
+
+# Mostrar cuántas reglas se generaron por cada combinación de soporte y confianza
+cat("\n===== Cantidad de reglas por configuración =====\n")
+print(rules_count)
+
+
+
+```
