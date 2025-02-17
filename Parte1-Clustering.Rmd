@@ -1524,8 +1524,8 @@ for (s in support_vals) {
   for (c in confidence_vals) {
     
     # Capturar la salida del algoritmo para evitar que se imprima
-    suppressWarnings(
-      capture.output(
+     suppressWarnings(
+      suppressMessages(
         reglas <- apriori(data = trans,
                           parameter = list(support = s,
                                            confidence = c,
@@ -1577,6 +1577,7 @@ Por esto al final lo que vamos a usar es es el algoritmo de Apriori con 0.8 y 0.
 
 Realizamos el ultimo apriori con lo definido.
 ```{r}
+
 # Filtrar las columnas que terminan en "_cat" y agregar 'genres'
 cat_columns <- grep("_cat$", colnames(movies), value = TRUE)
 
